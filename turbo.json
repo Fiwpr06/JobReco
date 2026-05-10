@@ -1,0 +1,24 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalEnv": ["DATABASE_URL", "REDIS_URL", "JWT_SECRET"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "generate-types": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "../../apps/api/app/schemas/**/*.py",
+        "../../apps/api/app/api/**/*.py"
+      ],
+      "outputs": ["generated/**"]
+    },
+    "lint": {},
+    "test": {},
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
