@@ -1,0 +1,144 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    env_file: ../.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+      POSTGRES_DB: ${POSTGRES_DB:-job_matching}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - graphhire-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    env_file: ../.env
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - graphhire-net
+
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    container_name: qdrant
+    env_file: ../.env
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - graphhire-net
+
+  api-migration:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: api-migration
+    command: ["alembic", "upgrade", "head"]
+    env_file: ../.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-job_matching}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - graphhire-net
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: api
+    env_file: ../.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-job_matching}
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api-migration:
+        condition: service_completed_successfully
+    networks:
+      - graphhire-net
+
+  celery:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: celery
+    command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=info"]
+    env_file: ../.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgres:5432/${POSTGRES_DB:-job_matching}
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - graphhire-net
+
+  web:
+    build:
+      context: ../
+      dockerfile: apps/web/Dockerfile
+      args:
+        INTERNAL_API_URL: "http://api:8000"
+    container_name: web
+    env_file: ../.env
+    environment:
+      - INTERNAL_API_URL=http://api:8000
+    depends_on:
+      - api
+    networks:
+      - graphhire-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - api
+      - web
+    networks:
+      - graphhire-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+
+networks:
+  graphhire-net:
+    driver: bridge
