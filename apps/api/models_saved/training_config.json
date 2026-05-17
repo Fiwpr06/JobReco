@@ -1,0 +1,8 @@
+{
+    "num_hard_negatives": 99,
+    "hidden_dim": 128,
+    "num_heads": 4,
+    "num_layers": 2,
+    "dropout": 0.2,
+    "lr": 0.001
+}
