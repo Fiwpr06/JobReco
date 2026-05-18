@@ -1,0 +1,25 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.10.9, pytest-9.0.3, pluggy-1.6.0 -- D:\Workspace\DACS\DACS3\JOB_RECOMMENDATION\job_matching_backend\venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\Workspace\DACS\DACS3\JOB_RECOMMENDATION\job_matching_backend
+plugins: anyio-4.13.0, asyncio-1.3.0
+asyncio: mode=strict, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 59 items
+
+tests/test_phase0/test_schema.py::test_all_tables_exist FAILED           [  1%]
+tests/test_phase0/test_schema.py::test_jobs_columns FAILED               [  3%]
+tests/test_phase0/test_schema.py::test_skills_learnability_constraint PASSED [  5%]
+tests/test_phase0/test_schema.py::test_apply_url_not_null FAILED         [  6%]
+tests/test_phase0/test_schema.py::test_job_matches_has_apply_url_column FAILED [  8%]
+tests/test_phase0/test_seed_data.py::test_500_jobs_seeded FAILED         [ 10%]
+tests/test_phase0/test_seed_data.py::test_all_jobs_have_apply_url FAILED [ 11%]
+tests/test_phase0/test_seed_data.py::test_apply_url_format FAILED        [ 13%]
+tests/test_phase0/test_seed_data.py::test_salary_normalization FAILED    [ 15%]
+tests/test_phase0/test_seed_data.py::test_experience_normalization FAILED [ 16%]
+tests/test_phase0/test_seed_data.py::test_117_skills_seeded FAILED       [ 18%]
+tests/test_phase0/test_seed_data.py::test_skills_learnability_distribution FAILED [ 20%]
+tests/test_phase0/test_seed_data.py::test_slwg_weights_correct FAILED    [ 22%]
+tests/test_phase1/test_embeddings.py::test_all_jobs_have_embeddings FAILED [ 23%]
+tests/test_phase1/test_embeddings.py::test_embedding_dimension FAILED    [ 25%]
+tests/test_phase1/test_embeddings.py::test_faiss_index_loadable PASSED   [ 27%]
+tests/test_phase1/test_embeddings.py::test_faiss_search_returns_results 
