@@ -1,0 +1,14 @@
+node_modules
+apps/web/node_modules
+apps/api/node_modules
+packages/*/node_modules
+.next
+apps/web/.next
+.env
+.env.local
+.git
+.turbo
+apps/api/__pycache__
+apps/api/venv
+apps/api/.venv
+*.pyc

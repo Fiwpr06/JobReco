@@ -1,0 +1,14 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.git/
+.github/
+data/
+*.db
+*.sqlite
+test_output.txt
+test_output_utf8.txt
