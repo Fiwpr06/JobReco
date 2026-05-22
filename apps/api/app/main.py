@@ -2,8 +2,7 @@ import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import PlainTextResponse
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -13,9 +12,10 @@ from app.config import settings
 from app.utils.cache import hybrid_cache
 from loguru import logger
 
-# ── 1. Rate Limiting Setup ────────────────────────────────────────────────
-# 100 req/min per IP by default
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+from jose import JWTError, jwt
+from app.services.auth_service import SECRET_KEY, ALGORITHM
+
+from app.utils.rate_limit import limiter
 
 # ── 2. Prometheus Metrics ──────────────────────────────────────────────────
 REQUEST_COUNT = Counter(
@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
     logger.info("Pre-loading GNN model and graph assets...")
     try:
         from app.api.v1.matching import preload_matching_assets
-        preload_matching_assets()
+        await preload_matching_assets()
     except Exception as e:
         logger.error(f"Lifespan GNN preload failed: {e}")
         
@@ -68,22 +68,51 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return await call_next(request)
+    response = await call_next(request)
+    if not request.url.path.startswith("/docs") and not request.url.path.startswith("/redoc") and not request.url.path.startswith("/openapi.json"):
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "message": "An unexpected error occurred. Please try again later."},
+    )
+
+# ── 3.5 JWT Decoder Middleware for Rate Limiter ──────────────────────────
+@app.middleware("http")
+async def extract_user_tier_middleware(request: Request, call_next):
+    tier = "free"
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            tier = payload.get("tier", "free")
+        except JWTError:
+            pass
+    request.state.user_tier = tier
+    return await call_next(request)
 
 # ── 4. Metrics Middleware ──────────────────────────────────────────────────
 @app.middleware("http")
 async def prometheus_middleware(request: Request, call_next):
     start_time = time.time()
     method = request.method
-    # Use path, but group UUIDs/numbers to avoid cardinality explosion
-    # Simplistic approach: just use request.url.path
-    path = request.url.path
+    import re
+    path = re.sub(r'/\d+', '/{id}', request.url.path)
     
     response = await call_next(request)
     
@@ -96,6 +125,14 @@ async def prometheus_middleware(request: Request, call_next):
         REQUEST_LATENCY.labels(method=method, endpoint=path).observe(latency)
         
     return response
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ── 5. Routes ──────────────────────────────────────────────────────────────
 app.include_router(api_v1_router, prefix="/api/v1")
