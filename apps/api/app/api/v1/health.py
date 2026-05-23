@@ -3,6 +3,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends
 from app.database import AsyncSessionLocal
+from app.services.auth_service import get_db
 from app.utils.cache import hybrid_cache
 import os
 
@@ -11,12 +12,8 @@ router = APIRouter()
 FAISS_INDEX_PATH = os.path.join(os.getcwd(), "faiss_indexes", "index.faiss")
 MODEL_WEIGHTS_PATH = os.path.join(os.getcwd(), "models_saved", "hgat_v1.pt")
 
-async def get_db_session():
-    async with AsyncSessionLocal() as session:
-        yield session
-
 @router.get("/", summary="Health Check")
-async def health_check(db: AsyncSession = Depends(get_db_session)):
+async def health_check(db: AsyncSession = Depends(get_db)):
     status = {
         "status": "ok",
         "services": {}
