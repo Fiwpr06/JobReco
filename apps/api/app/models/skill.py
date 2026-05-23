@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DECIMAL, DateTime, Foreign
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from sqlalchemy import func
 from app.database import Base
 
 class Skill(Base):
@@ -25,6 +26,6 @@ class Skill(Base):
     graph_node_id = Column(Integer)
     embedding = Column(ARRAY(Float))
     
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, server_default=func.now())
 
     parent = relationship("Skill", remote_side=[id], backref="child_skills")

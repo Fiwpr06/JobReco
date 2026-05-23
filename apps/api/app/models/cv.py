@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, BigInteger, DECIMAL, Boole
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from sqlalchemy import func
 from app.database import Base
 
 class CV(Base):
@@ -29,8 +30,9 @@ class CV(Base):
     faiss_index_id = Column(Integer)
     
     is_primary = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, server_default=func.now())
+    deleted_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="cvs")
     skills = relationship("CVSkill", back_populates="cv", cascade="all, delete-orphan")

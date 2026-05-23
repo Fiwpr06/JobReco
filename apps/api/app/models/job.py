@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, BigInteger, DECIMAL, Boole
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from sqlalchemy import func
 from app.database import Base
 
 class Company(Base):
@@ -13,7 +14,7 @@ class Company(Base):
     industry = Column(String(100))
     company_size = Column(String(50))
     graph_node_id = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, server_default=func.now())
 
     jobs = relationship("Job", back_populates="company")
 
@@ -78,8 +79,9 @@ class Job(Base):
     is_active = Column(Boolean, default=True, index=True)
     normalized_at = Column(DateTime)
     embedded_at = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, server_default=func.now())
+    deleted_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     # Relationships
     company_id = Column(Integer, ForeignKey('companies.id'))
@@ -124,7 +126,7 @@ class ApplyClick(Base):
     job_id = Column(Integer, ForeignKey('jobs.id', ondelete='CASCADE'))
     cv_id = Column(Integer, ForeignKey('cvs.id'))
     apply_url = Column(String(1000))
-    clicked_at = Column(DateTime, default=datetime.utcnow)
+    clicked_at = Column(DateTime, server_default=func.now())
 
     user = relationship("User", back_populates="apply_clicks")
     job = relationship("Job", back_populates="apply_clicks")

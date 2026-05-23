@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Text, DECIMAL, DateTime, Foreign
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from datetime import datetime
+from sqlalchemy import func
 from app.database import Base
 
 class JobMatch(Base):
@@ -29,7 +30,7 @@ class JobMatch(Base):
     apply_url = Column(String(1000))
     rank_position = Column(Integer)
     model_version = Column(String(20), default='hgat-v1')
-    computed_at = Column(DateTime, default=datetime.utcnow)
+    computed_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (
         UniqueConstraint('cv_id', 'job_id', name='idx_cv_job_match_unique'),
