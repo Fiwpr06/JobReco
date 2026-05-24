@@ -93,3 +93,28 @@ class MatchAPIResponse(BaseModel):
 
     model_config = ConfigDict(protected_namespaces=())
 
+class JobToCvsRequest(BaseModel):
+    jd_text: str
+    top_k: Optional[int] = 10
+
+class CandidateResultItem(BaseModel):
+    rank: int
+    candidate_id: int
+    candidate_name: str
+    candidate_title: str
+    experience_years: float
+    expected_salary: Optional[str] = None
+    scores: MatchResultScores
+    skill_analysis: SkillGapAnalysisTest
+    explanation: str
+    cv_url: Optional[str] = None
+
+class JobToCvsResponse(BaseModel):
+    job_id: Optional[int] = None
+    model_version: str = "hgat_v1"
+    computed_at: datetime
+    total_cvs_evaluated: int
+    results: List[CandidateResultItem]
+
+    model_config = ConfigDict(protected_namespaces=())
+

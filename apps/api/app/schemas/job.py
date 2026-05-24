@@ -12,6 +12,31 @@ class CompanyResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class JobSkillCreate(BaseModel):
+    skill_id: int
+    is_required: bool = True
+
+class JobCreate(BaseModel):
+    title_vi: Optional[str] = None
+    title_en: Optional[str] = None
+    job_address: Optional[str] = None
+    job_requirements_vi: Optional[str] = None
+    job_requirements_en: Optional[str] = None
+    job_description_vi: Optional[str] = None
+    job_description_en: Optional[str] = None
+    benefit_vi: Optional[str] = None
+    benefit_en: Optional[str] = None
+    salary_min_vnd: Optional[int] = None
+    salary_max_vnd: Optional[int] = None
+    salary_is_negotiable: bool = False
+    experience_min_years: Optional[float] = None
+    experience_max_years: Optional[float] = None
+    job_type: Optional[str] = None
+    quantity: Optional[int] = None
+    job_category: Optional[str] = None
+    skills: List[JobSkillCreate] = []
+
+
 class JobSkillResponse(BaseModel):
     id: int
     job_id: int

@@ -30,3 +30,21 @@ class SkillTrendResponse(BaseModel):
     learnability_weight: float
     job_count: int
     growth_rate: float
+
+class GraphNode(BaseModel):
+    id: str
+    label: str
+    category: str  # technical, soft, domain
+    status: str    # owned, missing, matched
+    tier: Optional[str] = None
+
+class GraphEdge(BaseModel):
+    id: str
+    source: str
+    target: str
+    type: str      # prerequisite, related, similar
+    animated: bool = False
+
+class SkillGraphResponse(BaseModel):
+    nodes: List[GraphNode]
+    edges: List[GraphEdge]
