@@ -20,6 +20,7 @@ class HybridCache:
         
         # L1 Cache: OrderedDict to manage LRU, storing (timestamp, value)
         self._l1_cache: OrderedDict[str, tuple[float, Any]] = OrderedDict()
+        self._lock = asyncio.Lock()
         
         # L2 Cache: Redis connection
         self._redis: Optional[aioredis.Redis] = None
@@ -35,16 +36,17 @@ class HybridCache:
 
     async def get(self, key: str) -> Optional[Any]:
         # Check L1 Cache
-        if key in self._l1_cache:
-            timestamp, value = self._l1_cache[key]
-            if time.time() - timestamp <= self.l1_ttl:
-                # Move to end to mark as recently used
-                self._l1_cache.move_to_end(key)
-                logger.debug(f"Cache HIT (L1): {key}")
-                return value
-            else:
-                # Expired in L1
-                del self._l1_cache[key]
+        async with self._lock:
+            if key in self._l1_cache:
+                timestamp, value = self._l1_cache[key]
+                if time.time() - timestamp <= self.l1_ttl:
+                    # Move to end to mark as recently used
+                    self._l1_cache.move_to_end(key)
+                    logger.debug(f"Cache HIT (L1): {key}")
+                    return value
+                else:
+                    # Expired in L1
+                    del self._l1_cache[key]
         
         # Check L2 Cache
         if self._redis:
@@ -53,7 +55,8 @@ class HybridCache:
                 if cached_data:
                     value = json.loads(cached_data)
                     # Restore to L1
-                    self._set_l1(key, value)
+                    async with self._lock:
+                        self._set_l1(key, value)
                     logger.debug(f"Cache HIT (L2): {key}")
                     return value
             except Exception as e:
@@ -72,7 +75,8 @@ class HybridCache:
 
     async def set(self, key: str, value: Any):
         # Set L1
-        self._set_l1(key, value)
+        async with self._lock:
+            self._set_l1(key, value)
         
         # Set L2
         if self._redis:
