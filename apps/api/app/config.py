@@ -40,11 +40,29 @@ class Settings(BaseSettings):
     # Translation
     TRANSLATION_PROVIDER: str = "argostranslate"
 
+    # Cloudinary
+    CLOUDINARY_CLOUD_NAME: str = "your_cloud_name"
+    CLOUDINARY_API_KEY: str = "your_api_key"
+    CLOUDINARY_API_SECRET: str = "your_api_secret"
+    
+    # Payments
+    BANK_ID: str = "MB"
+    BANK_ACCOUNT_NO: str = "000000000"
+    BANK_ACCOUNT_NAME: str = "COMPANY_NAME"
+    PAYMENT_WEBHOOK_SECRET: str = "default-webhook-secret-change-me"
+    
+    # Environment
+    NODE_ENV: str = "development"
+
     # [CRIT-7 FIX] Warn loudly if the JWT secret is the insecure default
     @field_validator("SECRET_KEY")
     @classmethod
     def validate_secret_key(cls, v: str) -> str:
         if v == "change-me-in-production" or len(v) < 32:
+            import os
+            env = os.getenv("NODE_ENV", "development")
+            if env == "production":
+                raise ValueError("SECURITY ERROR: SECRET_KEY must be ≥ 32 chars in production.")
             warnings.warn(
                 "SECURITY WARNING: SECRET_KEY is weak or set to the insecure default. "
                 "Set a strong random SECRET_KEY (≥ 32 chars) in your .env file before deploying to production.",
@@ -52,6 +70,6 @@ class Settings(BaseSettings):
             )
         return v
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()
