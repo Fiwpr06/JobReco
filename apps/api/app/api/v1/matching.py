@@ -38,39 +38,40 @@ MODEL_WEIGHTS_PATH = os.path.join(os.getcwd(), "models_saved", "hgat_v1.pt")
 _cached_graph = None
 _cached_model = None
 
-def preload_matching_assets():
+async def preload_matching_assets():
     global _cached_graph, _cached_model
-    if os.path.exists(GRAPH_PATH) and os.path.exists(MODEL_WEIGHTS_PATH):
-        try:
-            if _cached_graph is None:
-                builder = RecruitmentGraphBuilder()
-                _cached_graph = builder.load_graph(GRAPH_PATH)
-            graph = _cached_graph
-            
-            node_counts = {
-                'job': graph['job'].x.size(0),
-                'skill': graph['skill'].x.size(0),
-                'company': graph['company'].x.size(0),
-                'location': graph['location'].x.size(0),
-                'category': graph['category'].x.size(0)
-            }
-            
-            if _cached_model is None:
-                model = CVConditionedHGAT(
-                    node_counts=node_counts,
-                    in_dim=settings.EMBEDDING_DIM,
-                    hidden_dim=settings.HGAT_HIDDEN_DIM,
-                    num_heads=settings.HGAT_NUM_HEADS,
-                    num_layers=settings.HGAT_NUM_LAYERS,
-                    dropout=0.0 # eval mode
-                )
-                state_dict = torch.load(MODEL_WEIGHTS_PATH, map_location=torch.device('cpu'), weights_only=False)
-                model.load_state_dict(state_dict)
-                model.eval()
-                _cached_model = model
-            print("GNN model and graph pre-loaded successfully during application startup!")
-        except Exception as e:
-            print(f"Preloading GNN model/graph failed: {e}")
+    async with _model_load_lock:
+        if os.path.exists(GRAPH_PATH) and os.path.exists(MODEL_WEIGHTS_PATH):
+            try:
+                if _cached_graph is None:
+                    builder = RecruitmentGraphBuilder()
+                    _cached_graph = builder.load_graph(GRAPH_PATH)
+                graph = _cached_graph
+                
+                node_counts = {
+                    'job': graph['job'].x.size(0),
+                    'skill': graph['skill'].x.size(0),
+                    'company': graph['company'].x.size(0),
+                    'location': graph['location'].x.size(0),
+                    'category': graph['category'].x.size(0)
+                }
+                
+                if _cached_model is None:
+                    model = CVConditionedHGAT(
+                        node_counts=node_counts,
+                        in_dim=settings.EMBEDDING_DIM,
+                        hidden_dim=settings.HGAT_HIDDEN_DIM,
+                        num_heads=settings.HGAT_NUM_HEADS,
+                        num_layers=settings.HGAT_NUM_LAYERS,
+                        dropout=0.0 # eval mode
+                    )
+                    state_dict = torch.load(MODEL_WEIGHTS_PATH, map_location=torch.device('cpu'), weights_only=False)
+                    model.load_state_dict(state_dict)
+                    model.eval()
+                    _cached_model = model
+                print("GNN model and graph pre-loaded successfully during application startup!")
+            except Exception as e:
+                print(f"Preloading GNN model/graph failed: {e}")
 
 @router.post("/", response_model=MatchAPIResponse)
 @router.post("/cv-to-jobs", response_model=MatchAPIResponse)
@@ -84,10 +85,10 @@ async def get_job_recommendations(
     # 1. Fetch requested CV or fallback to user's primary CV
     stmt = select(CV).options(
         selectinload(CV.skills).selectinload(CVSkill.skill)
-    ).where(CV.user_id == current_user.id)
+    ).where(CV.deleted_at.is_(None), CV.user_id == current_user.id)
     
     if req.cv_id:
-        stmt = stmt.where(CV.id == req.cv_id)
+        stmt = stmt.where(CV.deleted_at.is_(None), CV.id == req.cv_id)
     else:
         stmt = stmt.where(CV.is_primary == True)
         
@@ -102,6 +103,12 @@ async def get_job_recommendations(
         
     cv_skill_ids = {sk.skill_id for sk in cv.skills}
     cv_skills_by_id = {sk.skill_id: sk for sk in cv.skills}
+    
+    if cv.embedding is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CV has not been processed for matching yet. Please wait for analysis to complete."
+        )
     
     # 2. Use FAISS index to query top-50 candidate job IDs if index exists
     index_path = os.path.join(os.getcwd(), "faiss_indexes", "index.faiss")
@@ -125,7 +132,7 @@ async def get_job_recommendations(
                 selectinload(Job.company),
                 selectinload(Job.skills).selectinload(JobSkill.skill)
             )
-            .where(Job.is_active == True)
+            .where(Job.deleted_at.is_(None), Job.is_active == True)
             .where(Job.id.in_(candidate_job_ids))
         )
     else:
@@ -135,7 +142,7 @@ async def get_job_recommendations(
                 selectinload(Job.company),
                 selectinload(Job.skills).selectinload(JobSkill.skill)
             )
-            .where(Job.is_active == True)
+            .where(Job.deleted_at.is_(None), Job.is_active == True)
         )
     jobs = jobs_query.scalars().all()
     
