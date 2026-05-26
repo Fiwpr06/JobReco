@@ -1,0 +1,49 @@
+{
+  "cv_id": "cv_phi_001",
+  "candidate_name": "Hà Trọng Phi",
+  "total_jobs_scanned": 50247,
+  "top_matches": [
+    {
+      "rank": 1,
+      "job_id": "job_fpt_001",
+      "company": "FPT Software",
+      "title": "Full-stack Developer (Java + React)",
+      "location": "Đà Nẵng",
+      "salary_range": "15-25 triệu VND",
+      "match_score": 0.82,
+      "skill_match": 0.75,
+      "experience_match": 0.85,
+      "logo": "/logos/fpt.png",
+      "why_good_fit": "React 19 expertise + Java background + PostgreSQL",
+      "missing_critical": ["Spring Boot"]
+    },
+    {
+      "rank": 2,
+      "job_id": "job_vng_002",
+      "company": "VNG Corporation",
+      "title": "Backend Developer (Node.js)",
+      "location": "Đà Nẵng / Remote",
+      "salary_range": "18-30 triệu VND",
+      "match_score": 0.79,
+      "skill_match": 0.88,
+      "experience_match": 0.70,
+      "logo": "/logos/vng.png",
+      "why_good_fit": "Node.js + PostgreSQL + GreenLoop project",
+      "missing_critical": ["TypeScript (advanced)", "Redis"]
+    },
+    {
+      "rank": 3,
+      "job_id": "job_tma_003",
+      "company": "TMA Solutions",
+      "title": "Junior Java Developer",
+      "location": "Đà Nẵng",
+      "salary_range": "12-18 triệu VND",
+      "match_score": 0.76,
+      "skill_match": 0.82,
+      "experience_match": 0.68,
+      "logo": "/logos/tma.png",
+      "why_good_fit": "JavaFX project experience + strong fundamentals",
+      "missing_critical": []
+    }
+  ]
+}

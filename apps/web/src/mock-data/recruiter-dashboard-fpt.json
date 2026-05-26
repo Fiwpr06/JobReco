@@ -1,0 +1,90 @@
+{
+  "recruiter": {
+    "id": "rec_fpt_001",
+    "name": "Nguyễn Văn A",
+    "company": "FPT Software",
+    "role": "Senior Talent Acquisition"
+  },
+  "job_posting": {
+    "id": "job_fpt_001",
+    "title": "Full-stack Developer (Java + React)",
+    "department": "Education Solutions",
+    "location": "FPT Complex Đà Nẵng",
+    "posted_date": "2026-05-15",
+    "deadline": "2026-06-15",
+    "status": "active",
+    "total_applications": 47,
+    "reviewed": 23,
+    "shortlisted": 5,
+    "rejected": 10,
+    "pending": 24
+  },
+  "top_candidates": [
+    {
+      "rank": 1,
+      "cv_id": "cv_abc_999",
+      "name": "Trần Minh B",
+      "university": "Bách Khoa Đà Nẵng",
+      "gpa": 3.6,
+      "match_score": 0.88,
+      "skill_match": 0.92,
+      "experience_years": 2,
+      "avatar": "/avatars/candidate1.jpg",
+      "status": "shortlisted",
+      "applied_date": "2026-05-16"
+    },
+    {
+      "rank": 2,
+      "cv_id": "cv_phi_001",
+      "name": "Hà Trọng Phi",
+      "university": "VKU",
+      "gpa": 3.8,
+      "match_score": 0.82,
+      "skill_match": 0.75,
+      "experience_years": 0.5,
+      "avatar": "/avatars/phi.jpg",
+      "status": "pending",
+      "applied_date": "2026-05-20",
+      "ai_highlight": "⭐ High-potential junior: Strong projects + Fast learner",
+      "strengths": ["React 19", "PostgreSQL", "Self-learning", "Japanese N5"],
+      "concerns": ["Missing Spring Boot", "No enterprise experience"],
+      "radar_data": [
+        {"subject": "React", "A": 95, "fullMark": 100},
+        {"subject": "NodeJS", "A": 85, "fullMark": 100},
+        {"subject": "PostgreSQL", "A": 90, "fullMark": 100},
+        {"subject": "Spring", "A": 30, "fullMark": 100},
+        {"subject": "Java", "A": 85, "fullMark": 100}
+      ],
+      "projects": [
+        {"name": "GreenLoop", "desc": "E-commerce (React + Node + PostgreSQL)"},
+        {"name": "Voicify", "desc": "Translation App (JavaFX + Python)"},
+        {"name": "Japanese Flashcard", "desc": "EdTech (Vanilla JS)"}
+      ],
+      "education_score": 90,
+      "projects_score": 80
+    },
+    {
+      "rank": 3,
+      "cv_id": "cv_xyz_888",
+      "name": "Lê Thị C",
+      "university": "ĐH Duy Tân",
+      "gpa": 3.5,
+      "match_score": 0.79,
+      "skill_match": 0.80,
+      "experience_years": 1,
+      "status": "pending"
+    }
+  ],
+  "skill_heatmap_data": {
+    "description": "Tần suất skills trong 47 CVs",
+    "skills": [
+      {"name": "Java", "count": 42, "percentage": 89, "strength_avg": 7.2},
+      {"name": "React", "count": 28, "percentage": 60, "strength_avg": 6.5},
+      {"name": "Spring Boot", "count": 25, "percentage": 53, "strength_avg": 6.8},
+      {"name": "PostgreSQL", "count": 31, "percentage": 66, "strength_avg": 6.9},
+      {"name": "Docker", "count": 18, "percentage": 38, "strength_avg": 5.5},
+      {"name": "AWS", "count": 12, "percentage": 26, "strength_avg": 5.0},
+      {"name": "Node.js", "count": 22, "percentage": 47, "strength_avg": 6.3}
+    ]
+  }
+}

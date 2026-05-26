@@ -1,0 +1,44 @@
+{
+  "stages": [
+    {
+      "id": 1,
+      "name": "Tải CV lên hệ thống",
+      "duration_ms": 1000,
+      "status": "completed",
+      "message": "Bachelor_of_Science_in_Information_Technology.pdf"
+    },
+    {
+      "id": 2,
+      "name": "Trích xuất kỹ năng",
+      "duration_ms": 2000,
+      "status": "completed",
+      "details": {
+        "skills_found": 15,
+        "languages": ["Java", "Python", "JavaScript"],
+        "frameworks": ["React", "Node.js", "JavaFX"],
+        "tools": ["Git", "PostgreSQL"]
+      }
+    },
+    {
+      "id": 3,
+      "name": "Phân tích AI (Embeddings)",
+      "duration_ms": 4000,
+      "status": "in_progress",
+      "message": "Đang tạo vector 384 chiều sử dụng paraphrase-multilingual-MiniLM..."
+    },
+    {
+      "id": 4,
+      "name": "Tìm kiếm công việc (FAISS)",
+      "duration_ms": 3000,
+      "status": "pending",
+      "message": "Đang tìm kiếm hơn 50,000 công việc trong không gian vector..."
+    },
+    {
+      "id": 5,
+      "name": "Xếp hạng thông minh (HGAT)",
+      "duration_ms": 5000,
+      "status": "pending",
+      "message": "Mạng nơ-ron đồ thị (GNN) đang xếp hạng lại top 50 công việc..."
+    }
+  ]
+}

@@ -11,7 +11,12 @@ export default withAuth({
 export const config = {
   // Add all routes that require authentication here.
   matcher: [
-    "/dashboard/:path*",
     "/profile/:path*",
+    "/cv/:path*",
+    "/for-you/:path*",
+    "/skills/:path*",
+    "/upload/:path*",
+    "/recruiter/:path*",
+    "/applications/:path*",
   ],
 };
