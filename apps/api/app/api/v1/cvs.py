@@ -1,5 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+import os
+import uuid
+import logging
+
+logger = logging.getLogger(__name__)
+from celery.result import AsyncResult
+from app.tasks.analyze_task import analyze_cv_task
 from sqlalchemy.future import select
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import List
@@ -88,6 +96,22 @@ async def create_cv(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    # Check upload quota for free users
+    if current_user.subscription_tier == "free":
+        now = datetime.datetime.utcnow()
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        count_query = await db.execute(
+            select(func.count(CV.id))
+            .where(CV.deleted_at.is_(None), CV.user_id == current_user.id, CV.created_at >= start_of_month)
+        )
+        cv_count = count_query.scalar()
+        if cv_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Free tier limit reached: You can only upload 3 CVs per month. Please upgrade to Premium."
+            )
+
     # 1. Translate raw text if VI provided but EN is missing
     raw_vi = cv_in.raw_text_vi or ""
     raw_en = cv_in.raw_text_en or ""
@@ -140,7 +164,7 @@ async def create_cv(
     embedding_vec = embedder.get_embedding(embedding_text)
     
     # 5. Check if this is the first CV for user
-    existing_cvs_query = await db.execute(select(CV).where(CV.user_id == current_user.id))
+    existing_cvs_query = await db.execute(select(CV).where(CV.deleted_at.is_(None), CV.user_id == current_user.id))
     has_existing = len(existing_cvs_query.scalars().all()) > 0
     is_primary = not has_existing # First CV is automatically primary
     
@@ -200,7 +224,7 @@ async def create_cv(
     result = await db.execute(
         select(CV)
         .options(selectinload(CV.skills).selectinload(CVSkill.skill))
-        .where(CV.id == db_cv.id)
+        .where(CV.deleted_at.is_(None), CV.id == db_cv.id)
     )
     return result.scalars().first()
 
@@ -213,7 +237,7 @@ async def list_cvs(
     result = await db.execute(
         select(CV)
         .options(selectinload(CV.skills).selectinload(CVSkill.skill))
-        .where(CV.user_id == current_user.id)
+        .where(CV.deleted_at.is_(None), CV.user_id == current_user.id)
         .order_by(CV.is_primary.desc(), CV.created_at.desc())
     )
     return result.scalars().all()
@@ -227,7 +251,7 @@ async def get_primary_cv(
     result = await db.execute(
         select(CV)
         .options(selectinload(CV.skills).selectinload(CVSkill.skill))
-        .where(CV.user_id == current_user.id, CV.is_primary == True)
+        .where(CV.deleted_at.is_(None), CV.user_id == current_user.id, CV.is_primary == True)
     )
     cv = result.scalars().first()
     if not cv:
@@ -247,7 +271,7 @@ async def get_cv(
     result = await db.execute(
         select(CV)
         .options(selectinload(CV.skills).selectinload(CVSkill.skill))
-        .where(CV.id == cv_id, CV.user_id == current_user.id)
+        .where(CV.deleted_at.is_(None), CV.id == cv_id, CV.user_id == current_user.id)
     )
     cv = result.scalars().first()
     if not cv:
@@ -268,7 +292,7 @@ async def update_cv(
     result = await db.execute(
         select(CV)
         .options(selectinload(CV.skills))
-        .where(CV.id == cv_id, CV.user_id == current_user.id)
+        .where(CV.deleted_at.is_(None), CV.id == cv_id, CV.user_id == current_user.id)
     )
     db_cv = result.scalars().first()
     if not db_cv:
@@ -318,7 +342,7 @@ async def update_cv(
     reload_result = await db.execute(
         select(CV)
         .options(selectinload(CV.skills).selectinload(CVSkill.skill))
-        .where(CV.id == db_cv.id)
+        .where(CV.deleted_at.is_(None), CV.id == db_cv.id)
     )
     return reload_result.scalars().first()
 
@@ -330,7 +354,7 @@ async def delete_cv(
     db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(
-        select(CV).where(CV.id == cv_id, CV.user_id == current_user.id)
+        select(CV).where(CV.deleted_at.is_(None), CV.id == cv_id, CV.user_id == current_user.id)
     )
     cv = result.scalars().first()
     if not cv:
@@ -340,14 +364,15 @@ async def delete_cv(
         )
         
     is_deleted_primary = cv.is_primary
-    await db.delete(cv)
+    cv.deleted_at = datetime.datetime.utcnow()
+    cv.is_primary = False
     await db.commit()
     
     # If we deleted the primary CV and there are other CVs, set the most recent one as primary
     if is_deleted_primary:
         next_cv_query = await db.execute(
             select(CV)
-            .where(CV.user_id == current_user.id)
+            .where(CV.deleted_at.is_(None), CV.user_id == current_user.id)
             .order_by(CV.created_at.desc())
         )
         next_cv = next_cv_query.scalars().first()
@@ -365,7 +390,7 @@ async def set_primary_cv(
     db: AsyncSession = Depends(get_db)
 ):
     result = await db.execute(
-        select(CV).where(CV.id == cv_id, CV.user_id == current_user.id)
+        select(CV).where(CV.deleted_at.is_(None), CV.id == cv_id, CV.user_id == current_user.id)
     )
     cv = result.scalars().first()
     if not cv:
@@ -378,7 +403,7 @@ async def set_primary_cv(
     # The previous code executed a SELECT without using the result — it did nothing.
     # The loop below correctly marks all CVs as primary/non-primary by id comparison.
     all_cvs_query = await db.execute(
-        select(CV).where(CV.user_id == current_user.id)
+        select(CV).where(CV.deleted_at.is_(None), CV.user_id == current_user.id)
     )
     for other_cv in all_cvs_query.scalars().all():
         other_cv.is_primary = (other_cv.id == cv_id)
@@ -389,6 +414,122 @@ async def set_primary_cv(
     reload_result = await db.execute(
         select(CV)
         .options(selectinload(CV.skills).selectinload(CVSkill.skill))
-        .where(CV.id == cv_id)
+        .where(CV.deleted_at.is_(None), CV.id == cv_id)
     )
     return reload_result.scalars().first()
+
+@router.post("/upload-and-analyze")
+async def upload_and_analyze_cv(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    if file.content_type != "application/pdf":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only PDF is allowed."
+        )
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024: # 5MB limit
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size exceeds the 5MB limit."
+        )
+
+    # Check upload quota for free users
+    if current_user.subscription_tier == "free":
+        now = datetime.datetime.utcnow()
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        count_query = await db.execute(
+            select(func.count(CV.id))
+            .where(CV.deleted_at.is_(None), CV.user_id == current_user.id, CV.created_at >= start_of_month)
+        )
+        cv_count = count_query.scalar()
+        if cv_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Free tier limit reached: You can only upload 3 CVs per month. Please upgrade to Premium."
+            )
+
+    # Ensure upload directory exists
+    upload_dir = os.path.join(os.getcwd(), "data", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Save file temporarily
+    file_id = str(uuid.uuid4())
+    ext = os.path.splitext(file.filename)[1]
+    filepath = os.path.join(upload_dir, f"{file_id}{ext}")
+    
+    with open(filepath, "wb") as f:
+        f.write(content)
+        
+    # Dispatch Celery Task
+    task = analyze_cv_task.delay(filepath)
+    
+    return {"task_id": task.id, "status": "processing", "message": "CV uploaded and analysis started"}
+
+@router.get("/status/{task_id}")
+async def get_analysis_status(
+    task_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    task_result = AsyncResult(task_id)
+    
+    if task_result.state == 'PENDING':
+        return {"status": "processing", "progress": 0, "step": "pending"}
+    elif task_result.state == 'PROGRESS':
+        return {
+            "status": "processing",
+            "progress": task_result.info.get('progress', 0),
+            "step": task_result.info.get('step', '')
+        }
+    elif task_result.state == 'SUCCESS':
+        return {
+            "status": "success",
+            "progress": 100,
+            "step": "done",
+            "result": task_result.result
+        }
+    else:
+        return {
+            "status": "failed",
+            "error": str(task_result.info)
+        }
+
+from fastapi import WebSocket, WebSocketDisconnect
+import asyncio
+
+@router.websocket("/ws/status/{task_id}")
+async def websocket_analysis_status(websocket: WebSocket, task_id: str):
+    await websocket.accept()
+    try:
+        while True:
+            task_result = AsyncResult(task_id)
+            if task_result.state == 'PENDING':
+                await websocket.send_json({"status": "processing", "progress": 0, "step": "pending"})
+            elif task_result.state == 'PROGRESS':
+                await websocket.send_json({
+                    "status": "processing",
+                    "progress": task_result.info.get('progress', 0),
+                    "step": task_result.info.get('step', '')
+                })
+            elif task_result.state == 'SUCCESS':
+                await websocket.send_json({
+                    "status": "success",
+                    "progress": 100,
+                    "step": "done",
+                    "result": task_result.result
+                })
+                break  # Task finished, close connection
+            elif task_result.state == 'FAILURE':
+                await websocket.send_json({
+                    "status": "failed",
+                    "error": str(task_result.info)
+                })
+                break  # Task failed, close connection
+            
+            await asyncio.sleep(1)  # Check status every second
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected for task {task_id}")
