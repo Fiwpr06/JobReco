@@ -5,7 +5,7 @@ celery_app = Celery(
     "worker",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["app.tasks.ml_tasks"]
+    include=["app.tasks.ml_tasks", "app.tasks.analyze_task"]
 )
 
 celery_app.conf.update(
