@@ -65,3 +65,5 @@ celerybeat-schedule
 infra/postgres_data*/
 infra/redis_data*/
 infra/qdrant_data*/
+
+apps/web/src/mock-data/
