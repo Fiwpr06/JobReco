@@ -1,20 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.future import select
-from sqlalchemy import func
+from sqlalchemy import func, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 import datetime
 
-from app.database import AsyncSessionLocal
+
 from app.models.user import User
 from app.models.cv import CV, CVSkill
 from app.models.job import Job, JobSkill
 from app.models.skill import Skill
-from app.schemas.skill import SkillTrendResponse, SkillResponse
+from app.schemas.skill import SkillTrendResponse, SkillResponse, SkillGraphResponse, GraphNode, GraphEdge
+import numpy as np
 from app.services.auth_service import get_db, get_current_user
 
 router = APIRouter()
+
+@router.get("", response_model=List[SkillResponse])
+async def get_all_skills(
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Skill).order_by(Skill.name.asc())
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
 @router.get("/trends", response_model=List[SkillTrendResponse])
 async def get_trending_skills(
@@ -110,7 +119,7 @@ async def get_career_gaps_advisory(
         Job, Job.id == JobSkill.job_id
     ).where(
         Job.is_active == True,
-        Skill.id.not_in(cv_skill_ids) if cv_skill_ids else True
+        Skill.id.not_in(cv_skill_ids) if cv_skill_ids else true()
     ).group_by(
         Skill.id, Skill.name, Skill.name_vi, Skill.learnability_tier, Skill.learnability_weight
     ).order_by(
@@ -150,3 +159,103 @@ async def get_career_gaps_advisory(
         "high_priority_gaps": advisory_cards,
         "recommendation_summary": f"By acquiring the top {len(advisory_cards)} missing skills listed below, you could potentially increase your market suitability by up to {sum(c['percentage_jobs_unlocked_if_learned'] for c in advisory_cards):.1f}% of current active job postings."
     }
+
+@router.get("/graph", response_model=SkillGraphResponse)
+async def get_skill_graph(
+    cv_id: int = Query(..., description="CV ID to base owned skills on"),
+    job_id: Optional[int] = Query(None, description="Optional Job ID to show missing requirements"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Fetch CV and owned skills
+    stmt = select(CV).options(selectinload(CV.skills).selectinload(CVSkill.skill)).where(CV.id == cv_id, CV.user_id == current_user.id)
+    result = await db.execute(stmt)
+    cv = result.scalars().first()
+    
+    if not cv:
+        raise HTTPException(status_code=404, detail="CV not found")
+
+    owned_skills = {sk.skill.id: sk.skill for sk in cv.skills}
+    
+    # Fetch Job and required skills if job_id is provided
+    job_skills = {}
+    if job_id:
+        job_stmt = select(Job).options(selectinload(Job.skills).selectinload(JobSkill.skill)).where(Job.id == job_id)
+        job_result = await db.execute(job_stmt)
+        job = job_result.scalars().first()
+        if job:
+            job_skills = {js.skill.id: js for js in job.skills}
+
+    # Prepare nodes
+    nodes = []
+    edges = []
+    processed_node_ids = set()
+    
+    # Helper to determine UI category
+    def map_category(cat: str) -> str:
+        cat_lower = (cat or "").lower()
+        if cat_lower in ["soft", "interpersonal", "communication"]:
+            return "soft"
+        elif cat_lower in ["domain", "business", "process"]:
+            return "domain"
+        return "technical"
+
+    # Add owned skills
+    for skill_id, skill in owned_skills.items():
+        status = "matched" if skill_id in job_skills else "owned"
+        nodes.append(GraphNode(
+            id=f"skill_{skill_id}",
+            label=skill.name,
+            category=map_category(skill.skill_category),
+            status=status,
+            tier=skill.learnability_tier
+        ))
+        processed_node_ids.add(skill_id)
+
+    # Add missing job skills
+    for skill_id, js in job_skills.items():
+        if skill_id not in processed_node_ids:
+            nodes.append(GraphNode(
+                id=f"skill_{skill_id}",
+                label=js.skill.name,
+                category=map_category(js.skill.skill_category),
+                status="missing",
+                tier=js.skill.learnability_tier
+            ))
+            processed_node_ids.add(skill_id)
+            
+    # If no job_id is provided, just show all owned skills
+    all_relevant_skills = list(owned_skills.values()) + [js.skill for js in job_skills.values() if js.skill.id not in owned_skills]
+
+    # Build Relationships (Edges)
+    # 1. Prerequisite relationships from DB (parent_skill_id)
+    for skill in all_relevant_skills:
+        if skill.parent_skill_id and skill.parent_skill_id in processed_node_ids:
+            edges.append(GraphEdge(
+                id=f"edge_parent_{skill.parent_skill_id}_{skill.id}",
+                source=f"skill_{skill.parent_skill_id}",
+                target=f"skill_{skill.id}",
+                type="prerequisite",
+                animated=False
+            ))
+
+    # 2. Synthesize 'related' edges using cosine similarity on embeddings for visual density
+    # Only connect if cosine similarity > 0.75
+    for i, s1 in enumerate(all_relevant_skills):
+        for j, s2 in enumerate(all_relevant_skills):
+            if i < j and s1.embedding and s2.embedding:
+                emb1 = np.array(s1.embedding)
+                emb2 = np.array(s2.embedding)
+                norm = (np.linalg.norm(emb1) * np.linalg.norm(emb2))
+                if norm > 0:
+                    sim = np.dot(emb1, emb2) / norm
+                    if sim > 0.75 and s1.parent_skill_id != s2.id and s2.parent_skill_id != s1.id:
+                        edges.append(GraphEdge(
+                            id=f"edge_sim_{s1.id}_{s2.id}",
+                            source=f"skill_{s1.id}",
+                            target=f"skill_{s2.id}",
+                            type="similar",
+                            animated=True if (s1.id in owned_skills) != (s2.id in owned_skills) else False
+                        ))
+
+    return SkillGraphResponse(nodes=nodes, edges=edges)
