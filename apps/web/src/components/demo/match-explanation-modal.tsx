@@ -51,12 +51,12 @@ const breakdownTranslations: Record<string, string> = {
 export default function MatchExplanationModal({ onClose, onViewRoadmap, jobResult }: MatchExplanationModalProps) {
   const data = jobResult ? {
     match_id: `JOB-${jobResult.job_id.toString().padStart(4, '0')}`,
-    overall_score: jobResult.scores.overall,
+    overall_score: jobResult.scores.overall * 100,
     breakdown: {
-      skill: jobResult.scores.skill_match,
-      experience: jobResult.scores.experience_match,
-      salary: jobResult.scores.salary_match,
-      location: jobResult.scores.location_match
+      skill: jobResult.scores.skill_match * 100,
+      experience: jobResult.scores.experience_match * 100,
+      salary: jobResult.scores.salary_match * 100,
+      location: jobResult.scores.location_match * 100
     },
     missing_skills: [
       ...jobResult.skill_analysis.missing_required.map(s => ({
@@ -220,7 +220,7 @@ export default function MatchExplanationModal({ onClose, onViewRoadmap, jobResul
             </div>
           </motion.div>
 
-          {/* AI RECOMMENDATION */}
+          {/* ĐỀ XUẤT TỪ HỆ THỐNG */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}

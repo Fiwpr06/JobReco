@@ -193,9 +193,9 @@ export default function SkillRoadmapTimeline({ onBack, jobResult }: SkillRoadmap
                 </span>
               </div>
               
-              {phase.defer_recommendation && (
+              {(phase as any).defer_recommendation && (
                 <div className="text-sm text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200 inline-block font-medium">
-                  💡 {phase.defer_recommendation}
+                  💡 {(phase as any).defer_recommendation}
                 </div>
               )}
             </div>

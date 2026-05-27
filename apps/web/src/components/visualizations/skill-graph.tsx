@@ -191,8 +191,8 @@ interface SkillGraphProps {
 }
 
 export function SkillGraph({ cvId, jobId, className = "" }: SkillGraphProps) {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
 
   const { data: graphData, isLoading, error } = useQuery<SkillGraphResponse>({
     queryKey: ["skill-graph", cvId, jobId],
@@ -286,8 +286,8 @@ export function SkillGraph({ cvId, jobId, className = "" }: SkillGraphProps) {
         edges={edges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
+        nodeTypes={nodeTypes as any}
+        edgeTypes={edgeTypes as any}
         fitView
         className="dark"
         minZoom={0.1}

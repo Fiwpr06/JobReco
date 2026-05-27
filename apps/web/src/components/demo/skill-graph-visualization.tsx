@@ -121,8 +121,8 @@ const getNodes = (phase: number, mockData: GraphData) => {
   
   // Compact layout with centered vertical alignment
   const initialNodes = [
-    { id: 'candidate', position: { x: 0, y: 220 }, data: { label: `${mockData.candidate.name}\n${mockData.candidate.major}` }, type: 'custom', targetPosition: 'right', sourcePosition: 'right' },
-    { id: 'target', position: { x: 1250, y: 220 }, data: { label: `${mockData.target_job.title}\n${mockData.target_job.company}` }, type: 'custom', targetPosition: 'left', sourcePosition: 'left' },
+    { id: 'candidate', position: { x: 0, y: 220 }, data: { label: `${mockData.candidate.name}\n${mockData.candidate.major}` }, type: 'custom', targetPosition: Position.Right, sourcePosition: Position.Right },
+    { id: 'target', position: { x: 1250, y: 220 }, data: { label: `${mockData.target_job.title}\n${mockData.target_job.company}` }, type: 'custom', targetPosition: Position.Left, sourcePosition: Position.Left },
     
     // Matching (Middle-Left)
     ...mockData.gap_analysis.matching_skills.map((skill, i) => ({
@@ -142,7 +142,7 @@ const getNodes = (phase: number, mockData: GraphData) => {
 
   return initialNodes.map(node => {
     let hidden = false;
-    let status = node.data.status;
+    let status = (node.data as any).status;
 
     if (phase === 0) {
       const missingIds = mockData.gap_analysis.missing_skills.map(m => `skill-${m.skill}`);

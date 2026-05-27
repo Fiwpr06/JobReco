@@ -42,9 +42,10 @@ const Confetti = () => {
 interface UploadAnalyzerProps {
   onStatusChange?: (status: 'idle' | 'analyzing' | 'complete') => void;
   onJobClick?: (jobId: string) => void;
+  onAnalysisComplete?: (data: any) => void;
 }
 
-export default function UploadAnalyzer({ onStatusChange, onJobClick }: UploadAnalyzerProps = {}) {
+export default function UploadAnalyzer({ onStatusChange, onJobClick, onAnalysisComplete }: UploadAnalyzerProps = {}) {
   const [status, setStatus] = useState<'idle' | 'analyzing' | 'complete'>('idle');
   const [currentStage, setCurrentStage] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
@@ -64,24 +65,83 @@ export default function UploadAnalyzer({ onStatusChange, onJobClick }: UploadAna
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, accept: { 'application/pdf': ['.pdf'] } });
 
   const startAnalysisSequence = async (file: File) => {
-    let delay = 0;
-    setLogs(['[HỆ THỐNG] Đang khởi tạo FASTART Matching Engine v2.4...']);
+    try {
+      setLogs(['[HỆ THỐNG] Đang khởi tạo FASTART Matching Engine v2.4...']);
 
-    UPLOAD_STAGES.forEach((stage, index) => {
-      setTimeout(() => {
-        setCurrentStage(stage.id);
-        addLog(`> ${stage.name}...`);
-        if (stage.message) addLog(`  ${stage.message}`);
-      }, delay);
-      delay += stage.duration_ms;
-    });
+      // STAGE 1: Trích xuất
+      setCurrentStage(1);
+      addLog(`> Trích xuất...`);
+      addLog(`  Đang đọc văn bản từ file PDF...`);
+      const formData = new FormData();
+      formData.append('file', file);
+      const parseRes = await fetch('/api/parse-cv', { method: 'POST', body: formData });
+      if (!parseRes.ok) throw new Error("Failed to parse PDF");
+      const parseData = await parseRes.json();
+      const rawText = parseData.text;
+      addLog(`> Trích xuất hoàn tất. (${rawText.length} ký tự)`);
 
-    // Complete
-    setTimeout(() => {
-      addLog('> Xử lý hoàn tất. Đang xếp hạng Top 50 công việc phù hợp...');
+      // STAGE 2: Phân tích NLP
+      setCurrentStage(2);
+      addLog(`> Phân tích NLP...`);
+      addLog(`  Đang nhận diện kỹ năng bằng Hybrid Extractor...`);
+      const cvRes = await api.post('/api/v1/cvs/', { raw_text_vi: rawText });
+      const createdCv = cvRes.data;
+      const extractedSkills = createdCv.skills.map((s: any) => s.skill.name);
+      addLog(`> Phân tích hoàn tất. Đã trích xuất ${extractedSkills.length} kỹ năng.`);
+
+      // Gửi dữ liệu tạm thời (Partial Graph Data) để biểu đồ hiển thị các node ứng viên
+      onAnalysisComplete?.({
+        candidate: { name: "Ứng viên", major: createdCv.title_en || "Chuyên gia" },
+        current_skills: extractedSkills,
+        target_job: { title: "Đang tìm kiếm...", company: "Hệ thống" },
+        required_skills: [],
+        gap_analysis: { matching_skills: [], missing_skills: [] }
+      });
+
+      // STAGE 3: Đánh giá
+      setCurrentStage(3);
+      addLog(`> Đánh giá...`);
+      addLog(`  Tính toán mức độ phù hợp bằng thuật toán GNN...`);
+      const matchRes = await api.post('/api/v1/matching/cv-to-jobs', { cv_id: createdCv.id });
+      const matchData = matchRes.data;
+      addLog(`> Xử lý hoàn tất. Đang xếp hạng Top ${matchData.matches.length} công việc phù hợp...`);
+      
+      setTopMatches({
+        total_jobs_scanned: matchData.total_jobs_scanned || 5240,
+        candidate_name: createdCv.title_en || "Ứng viên",
+        top_matches: matchData.matches.slice(0, 5)
+      });
+
+      // Tạo GraphData
+      if (matchData.matches.length > 0) {
+        const topMatch = matchData.matches[0];
+        const graphData = {
+          candidate: { name: "Ứng viên", major: createdCv.title_en || "Chuyên gia" },
+          current_skills: extractedSkills,
+          target_job: { title: topMatch.title, company: topMatch.company },
+          required_skills: [
+            ...topMatch.skill_analysis.matching_skills,
+            ...topMatch.skill_analysis.missing_required.map((s: any) => s.skill)
+          ],
+          gap_analysis: {
+            matching_skills: topMatch.skill_analysis.matching_skills,
+            missing_skills: topMatch.skill_analysis.missing_required.map((s: any) => ({
+              skill: s.skill,
+              estimated_time: s.estimated_learning_time || "2-4 tuần"
+            }))
+          }
+        };
+        onAnalysisComplete?.(graphData);
+      }
+
       setStatus('complete');
       onStatusChange?.('complete');
-    }, delay + 500);
+
+    } catch (err: any) {
+      addLog(`[LỖI] ${err.message || 'Xảy ra lỗi trong quá trình phân tích'}`);
+      setStatus('idle');
+      onStatusChange?.('idle');
+    }
   };
 
   // Auto-scroll logs
@@ -235,7 +295,7 @@ export default function UploadAnalyzer({ onStatusChange, onJobClick }: UploadAna
                 <Database className="w-4 h-4" /> CÔNG VIỆC PHÙ HỢP NHẤT (XẾP HẠNG BỞI HGAT)
               </h3>
               <div className="grid grid-cols-1 gap-4">
-                {topMatches.top_matches.map((job, i) => (
+                {topMatches.top_matches.map((job: any, i: number) => (
                   <motion.div
                     key={job.job_id}
                     initial={{ opacity: 0, x: -20 }}
