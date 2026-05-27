@@ -151,7 +151,7 @@ function CandidateModal({ candidate, onClose }: { candidate: CandidateResult; on
             </div>
           </div>
 
-          {/* AI explanation */}
+          {/* Giải thích từ hệ thống */}
           {candidate.explanation && (
             <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-1.5">

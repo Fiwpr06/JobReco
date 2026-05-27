@@ -159,7 +159,7 @@ export default function CvViewerPage() {
               </div>
             </div>
 
-            {/* AI Note */}
+            {/* Ghi chú từ hệ thống */}
             <div className="mb-6 p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
               <div className="flex items-center gap-2 mb-2">
                 <ShieldCheck className="w-4 h-4 text-indigo-600" />

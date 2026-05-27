@@ -1,5 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { BarChart2, Filter, Download } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
 interface ApiSkillData {
   skill: string;
   frequency: number;

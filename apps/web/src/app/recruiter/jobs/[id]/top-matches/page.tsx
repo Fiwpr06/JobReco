@@ -8,9 +8,6 @@ import { ChevronLeft, Check, X, ShieldCheck, Eye, Star } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
-import {
-  ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, Radar,
-} from "recharts";
 
 interface CandidateMatch {
   cv_id: number;
@@ -47,8 +44,9 @@ export default function TopMatchesPage() {
   }, [jobId]);
 
   const getScoreStyle = (score: number) => {
-    if (score >= 0.95) return { ring: "ring-2 ring-emerald-400", badge: "bg-emerald-100 text-emerald-700 border-emerald-200", text: "text-emerald-700" };
-    if (score >= 0.75) return { ring: "ring-2 ring-blue-400", badge: "bg-blue-100 text-blue-700 border-blue-200", text: "text-blue-700" };
+    const normalized = score <= 1 ? score * 100 : score;
+    if (normalized >= 95) return { ring: "ring-2 ring-emerald-400", badge: "bg-emerald-100 text-emerald-700 border-emerald-200", text: "text-emerald-700" };
+    if (normalized >= 75) return { ring: "ring-2 ring-blue-400", badge: "bg-blue-100 text-blue-700 border-blue-200", text: "text-blue-700" };
     return { ring: "", badge: "bg-amber-100 text-amber-700 border-amber-200", text: "text-amber-700" };
   };
 
@@ -95,14 +93,6 @@ export default function TopMatchesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {topCandidates.map((cand, idx) => {
               const style = getScoreStyle(cand.match_score);
-              const radarData = [
-                { subject: "Kỹ Năng", score: cand.skill_match * 100 },
-                { subject: "Kinh Nghiệm", score: cand.experience_match * 100 },
-                { subject: "HGAT Score", score: cand.match_score * 100 },
-                { subject: "Vị Trí", score: 95 },
-                { subject: "Lương", score: 90 },
-              ];
-
               return (
                 <motion.div
                   key={cand.cv_id}
@@ -120,28 +110,45 @@ export default function TopMatchesPage() {
                       <h3 className="text-lg font-bold text-slate-900 mt-3">{cand.candidate_name}</h3>
                     </div>
                     <div className={`w-16 h-16 rounded-full border-2 ${style.ring} flex flex-col items-center justify-center font-bold ${style.badge} shadow-sm`}>
-                      <span className="text-xl leading-none">{(cand.match_score * 100).toFixed(0)}</span>
+                      <span className="text-xl leading-none">{(cand.match_score <= 1 ? cand.match_score * 100 : cand.match_score).toFixed(0)}</span>
                       <span className="text-[9px] uppercase tracking-wider opacity-70">Match</span>
                     </div>
                   </div>
 
-                  {/* Radar */}
-                  <div className="h-44 mb-5">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius="75%" data={radarData}>
-                        <PolarGrid stroke="#e2e8f0" />
-                        <PolarAngleAxis dataKey="subject" tick={{ fill: "#64748b", fontSize: 9 }} />
-                        <Radar
-                          dataKey="score"
-                          stroke="#4f46e5"
-                          fill="#4f46e5"
-                          fillOpacity={0.15}
-                        />
-                      </RadarChart>
-                    </ResponsiveContainer>
+                  {/* Score breakdown bars */}
+                  <div className="space-y-3 mb-6 pt-2">
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-slate-600">Độ tương thích Kỹ Năng</span>
+                        <span className="text-indigo-600 font-mono">{(cand.skill_match * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${cand.skill_match * 100}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-slate-600">Sự phù hợp Kinh Nghiệm</span>
+                        <span className="text-blue-600 font-mono">{(cand.experience_match * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${cand.experience_match * 100}%` }} />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-slate-600">Điểm số HGAT (AI Model)</span>
+                        <span className="text-purple-600 font-mono">{(cand.match_score <= 1 ? cand.match_score * 100 : cand.match_score).toFixed(0)}%</span>
+                      </div>
+                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-purple-500 rounded-full" style={{ width: `${(cand.match_score <= 1 ? cand.match_score * 100 : cand.match_score)}%` }} />
+                      </div>
+                    </div>
                   </div>
 
-                  {/* AI Explanation */}
+                  {/* Giải thích từ hệ thống */}
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 mb-5">
                     <div className="flex items-center gap-1.5 mb-2">
                       <ShieldCheck className="w-4 h-4 text-indigo-500" />

@@ -72,9 +72,10 @@ export default function JobApplicantsPage() {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 0.9) return "bg-emerald-100 text-emerald-700 border-emerald-200";
-    if (score >= 0.75) return "bg-blue-100 text-blue-700 border-blue-200";
-    if (score >= 0.6) return "bg-amber-100 text-amber-700 border-amber-200";
+    const normalized = score <= 1 ? score * 100 : score;
+    if (normalized >= 90) return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (normalized >= 75) return "bg-blue-100 text-blue-700 border-blue-200";
+    if (normalized >= 60) return "bg-amber-100 text-amber-700 border-amber-200";
     return "bg-slate-100 text-slate-600 border-slate-200";
   };
 
@@ -179,7 +180,7 @@ export default function JobApplicantsPage() {
                         <div className="flex flex-col items-center">
                           <span className="text-[10px] text-slate-400 font-bold uppercase mb-1">Mức Độ Phù Hợp</span>
                           <div className={`px-3 py-1 rounded-lg border text-sm font-bold shadow-sm ${getScoreColor(cand.match_score)}`}>
-                            {(cand.match_score * 100).toFixed(0)}%
+                            {(cand.match_score <= 1 ? cand.match_score * 100 : cand.match_score).toFixed(0)}%
                           </div>
                         </div>
 
@@ -254,7 +255,7 @@ export default function JobApplicantsPage() {
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-xs text-slate-400 uppercase font-bold bg-slate-100 px-2.5 py-1 rounded-md">Candidate #{idx + 1}</span>
                     <div className={`px-3 py-1 rounded-lg border text-sm font-bold shadow-sm ${getScoreColor(cand.match_score)}`}>
-                      {(cand.match_score * 100).toFixed(0)}% Match
+                      {(cand.match_score <= 1 ? cand.match_score * 100 : cand.match_score).toFixed(0)}% Match
                     </div>
                   </div>
                   <h3 className="text-xl font-bold text-slate-900 mb-1">{cand.candidate_name}</h3>
