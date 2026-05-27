@@ -11,6 +11,7 @@ export default function UnifiedUploadPage() {
   const [status, setStatus] = useState<'idle' | 'analyzing' | 'complete'>('idle');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [viewState, setViewState] = useState<'main' | 'roadmap'>('main');
+  const [graphData, setGraphData] = useState<any>(null);
 
   return (
     <div className="container mx-auto px-4 py-8 min-h-[calc(100vh-100px)] flex flex-col">
@@ -28,6 +29,7 @@ export default function UnifiedUploadPage() {
               <UploadAnalyzer 
                 onStatusChange={setStatus} 
                 onJobClick={(jobId) => setSelectedJobId(jobId)} 
+                onAnalysisComplete={setGraphData}
               />
             </div>
 
@@ -41,7 +43,7 @@ export default function UnifiedUploadPage() {
                   className="w-full xl:w-1/2 overflow-hidden flex items-center"
                 >
                   <div className="w-full">
-                    <SkillGraphVisualization />
+                    <SkillGraphVisualization data={graphData} />
                   </div>
                 </motion.div>
               )}

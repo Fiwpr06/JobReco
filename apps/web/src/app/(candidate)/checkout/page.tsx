@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
@@ -16,7 +16,7 @@ interface PaymentDetails {
   status: string;
 }
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const { data: session, update } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,7 +24,7 @@ export default function CheckoutPage() {
   
   const [loading, setLoading] = useState(true);
   const [payment, setPayment] = useState<PaymentDetails | null>(null);
-  const [status, setStatus] = useState<"pending" | "completed" | "failed">("pending");
+  const [status, setStatus] = useState<"pending" | "processing" | "completed" | "failed">("pending");
   const [countdown, setCountdown] = useState(600); // 10 minutes
 
   useEffect(() => {
@@ -61,7 +61,9 @@ export default function CheckoutPage() {
     const interval = setInterval(async () => {
       try {
         const { data } = await api.get(`/api/v1/payments/status/${payment.order_code}`);
-        if (data.status === "completed") {
+        if (data.status === "processing" && status === "pending") {
+          setStatus("processing");
+        } else if (data.status === "completed") {
           setStatus("completed");
           clearInterval(interval);
           toast.success("Thanh toán thành công! Chào mừng bạn đến với Premium.");
@@ -93,20 +95,13 @@ export default function CheckoutPage() {
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
-  const handleManualComplete = async () => {
-    // This is just a MOCK button for testing without a real bank transfer
+  const handleNotifyTransfer = async () => {
     try {
-      await api.post("/api/v1/payments/webhook", {
-        order_code: payment?.order_code,
-        amount: payment?.amount,
-        status: "completed"
-      });
-      // The polling will catch it, or we can just set it here
-      setStatus("completed");
-      await update();
-      toast.success("Thanh toán giả lập thành công!");
+      await api.post(`/api/v1/payments/notify-transfer/${payment?.order_code}`);
+      setStatus("processing");
+      toast.success("Đã thông báo! Vui lòng chờ Admin xác nhận.");
     } catch (e) {
-      toast.error("Lỗi khi giả lập thanh toán.");
+      toast.error("Lỗi khi thông báo thanh toán.");
     }
   };
 
@@ -130,7 +125,7 @@ export default function CheckoutPage() {
           </div>
           <h2 className="text-3xl font-bold text-slate-900 mb-4">Thanh toán thành công!</h2>
           <p className="text-lg text-slate-600 mb-8">
-            Tài khoản của bạn đã được nâng cấp lên Premium. Hãy tận hưởng các tính năng AI tuyệt vời nhất.
+            Tài khoản của bạn đã được nâng cấp lên Premium. Hãy tận hưởng các tính năng tuyệt vời nhất của hệ thống.
           </p>
           <Button onClick={() => router.push("/profile/billing")} size="lg" className="rounded-xl px-8 bg-indigo-600 hover:bg-indigo-700">
             Xem lịch sử thanh toán
@@ -177,12 +172,20 @@ export default function CheckoutPage() {
             </div>
           </div>
           
-          {/* MOCK BUTTON FOR TESTING */}
-          {process.env.NODE_ENV !== "production" && (
+          {/* ACTION BUTTON */}
+          {status === "pending" && (
             <div className="mt-8 pt-6 border-t w-full text-center">
-              <Button onClick={handleManualComplete} variant="outline" size="sm" className="text-xs text-slate-500 border-dashed">
-                [Test] Giả lập quét QR thành công
+              <Button onClick={handleNotifyTransfer} size="lg" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl h-12">
+                TÔI ĐÃ CHUYỂN KHOẢN XONG
               </Button>
+            </div>
+          )}
+          {status === "processing" && (
+            <div className="mt-8 pt-6 border-t w-full text-center">
+               <div className="rounded-xl bg-orange-50 border border-orange-200 p-4 flex items-center justify-center text-orange-700 font-medium text-sm">
+                 <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                 Đang chờ Admin đối soát & xác nhận...
+               </div>
             </div>
           )}
         </div>
@@ -199,7 +202,7 @@ export default function CheckoutPage() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Người mua</span>
-                <span className="font-medium text-slate-900">{session.user.name || session.user.email}</span>
+                <span className="font-medium text-slate-900">{session?.user?.name || session?.user?.email || ""}</span>
               </div>
               <div className="flex justify-between pt-4 border-t">
                 <span className="text-slate-500 font-medium">Tổng tiền</span>
@@ -214,12 +217,25 @@ export default function CheckoutPage() {
             </h4>
             <ul className="list-disc pl-5 space-y-2">
               <li>Vui lòng giữ nguyên nội dung chuyển khoản là mã đơn hàng <strong>{payment?.order_code}</strong>.</li>
-              <li>Hệ thống sẽ tự động xác nhận trong vòng 1-3 phút sau khi bạn chuyển khoản thành công.</li>
+              <li>Bấm nút <strong>"Tôi đã chuyển khoản xong"</strong> sau khi hoàn tất thanh toán.</li>
+              <li>Admin sẽ đối soát và xác nhận giao dịch của bạn trong thời gian sớm nhất.</li>
               <li>Không tải lại trang trong quá trình giao dịch.</li>
             </ul>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[400px] items-center justify-center">
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   );
 }

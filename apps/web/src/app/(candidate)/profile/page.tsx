@@ -15,6 +15,7 @@ import {
   Edit3,
   Upload,
   ChevronRight,
+  ChevronLeft,
   Award,
   MapPin,
   DollarSign,
@@ -129,10 +130,10 @@ function StatCard({ icon: Icon, label, value, accent = false }: {
 // Main Page
 
 const PROFICIENCY_CONFIG = {
-  beginner:     { label: "Cơ bản",    color: "bg-slate-100 text-slate-600 border-slate-200",   dot: "bg-slate-400" },
-  intermediate: { label: "Trung bình", color: "bg-blue-50 text-blue-700 border-blue-200",     dot: "bg-blue-500" },
-  advanced:     { label: "Nâng cao",   color: "bg-indigo-50 text-indigo-700 border-indigo-200", dot: "bg-indigo-500" },
-  expert:       { label: "Chuyên gia", color: "bg-violet-50 text-violet-700 border-violet-200", dot: "bg-violet-500" },
+  beginner:     { label: "Cơ bản",    color: "bg-slate-700 text-white border-slate-700 shadow-sm",   dot: "bg-white" },
+  intermediate: { label: "Trung bình", color: "bg-blue-600 text-white border-blue-600 shadow-sm",     dot: "bg-white" },
+  advanced:     { label: "Nâng cao",   color: "bg-indigo-600 text-white border-indigo-600 shadow-sm", dot: "bg-white" },
+  expert:       { label: "Chuyên gia", color: "bg-violet-600 text-white border-violet-600 shadow-sm", dot: "bg-white" },
 } as const;
 
 export default function ProfilePage() {
@@ -155,6 +156,14 @@ export default function ProfilePage() {
   const primaryCv = cvs.find((c) => c.is_primary) || cvs[0] || null;
   const [selectedCvId, setSelectedCvId] = useState<number | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  const [cvPage, setCvPage] = useState(0);
+  const itemsPerPage = 4;
+  const maxPage = Math.max(0, Math.ceil(cvs.length / itemsPerPage) - 1);
+  const activeCvPage = Math.min(cvPage, maxPage);
+  const startIndex = activeCvPage * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedCvs = cvs.slice(startIndex, endIndex);
 
   const displayCv = selectedCvId
     ? cvs.find((c) => c.id === selectedCvId) || primaryCv
@@ -283,7 +292,7 @@ export default function ProfilePage() {
         className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
       >
         <StatCard icon={FileText}   label="CV đã tải lên"      value={`${cvs.length}`}       />
-        <StatCard icon={Brain}      label="Kỹ năng AI trích xuất" value={`${totalSkills}`}    accent />
+        <StatCard icon={Brain}      label="Kỹ năng được hệ thống trích xuất" value={`${totalSkills}`}    accent />
         <StatCard icon={Award}      label="Kỹ năng chuyên gia"  value={`${expertSkills}`}     />
         <StatCard icon={TrendingUp} label="Công việc phù hợp"   value="10"                    accent />
       </motion.div>
@@ -333,7 +342,7 @@ export default function ProfilePage() {
                   <div key={i} className="h-24 bg-slate-100 rounded-2xl animate-pulse" />
                 ))
               ) : (
-                cvs.map((cv) => (
+                paginatedCvs.map((cv) => (
                   <CvCard
                     key={cv.id}
                     cv={cv}
@@ -343,6 +352,30 @@ export default function ProfilePage() {
                 ))
               )}
             </div>
+
+            {cvs.length > itemsPerPage && (
+              <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/40">
+                <button
+                  disabled={activeCvPage === 0}
+                  onClick={() => setCvPage((prev) => Math.max(0, prev - 1))}
+                  className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-40 disabled:hover:text-slate-500 disabled:hover:bg-white transition-all shadow-sm"
+                  type="button"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-bold text-slate-500">
+                  Trang {activeCvPage + 1} / {maxPage + 1}
+                </span>
+                <button
+                  disabled={endIndex >= cvs.length}
+                  onClick={() => setCvPage((prev) => Math.min(maxPage, prev + 1))}
+                  className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 hover:text-indigo-600 disabled:opacity-40 disabled:hover:text-slate-500 disabled:hover:bg-white transition-all shadow-sm"
+                  type="button"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </motion.div>
 
           {/* Skill Radar Chart */}
@@ -354,7 +387,7 @@ export default function ProfilePage() {
           >
             <h2 className="font-bold text-slate-900 mb-1">Biểu Đồ Phân Bổ Kỹ Năng</h2>
             <p className="text-xs text-slate-500 mb-4">
-              Được AI phân tích từ CV chính của bạn
+              Được hệ thống phân tích từ CV chính của bạn
             </p>
             <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -371,7 +404,7 @@ export default function ProfilePage() {
                       borderRadius: "12px",
                       fontSize: "13px",
                     }}
-                    formatter={(val: number) => [`${val}%`, "Điểm kỹ năng"]}
+                    formatter={(val: any) => [`${val}%`, "Điểm kỹ năng"]}
                   />
                   <Radar
                     name="Kỹ năng"
@@ -396,9 +429,9 @@ export default function ProfilePage() {
               ))}
             </div>
           </motion.div>
+            </motion.div>
           )}
         </AnimatePresence>
-
         {/* RIGHT COLUMN: Skill breakdown */}
         <motion.div
           initial={{ opacity: 0, x: 16 }}
@@ -415,7 +448,7 @@ export default function ProfilePage() {
                 </div>
                 <h2 className="font-bold text-slate-900">Tóm tắt hồ sơ</h2>
                 <Badge className="bg-indigo-100 text-indigo-700 border-0 text-xs hover:bg-indigo-100">
-                  <Brain className="w-3 h-3 mr-1" /> AI Generated
+                  <Brain className="w-3 h-3 mr-1" /> Tạo bởi hệ thống
                 </Badge>
               </div>
               <p className="text-slate-700 leading-relaxed text-sm">{displayCv.summary_en}</p>
@@ -439,7 +472,7 @@ export default function ProfilePage() {
           {/* Skills by Level */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="px-6 py-5 border-b border-slate-100">
-              <h2 className="font-bold text-slate-900">Kỹ Năng AI Trích Xuất</h2>
+              <h2 className="font-bold text-slate-900">Kỹ Năng Hệ Thống Trích Xuất</h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 Từ CV <span className="font-medium text-indigo-600">{displayCv?.title_en}</span> • {totalSkills} kỹ năng tổng cộng
               </p>
@@ -478,7 +511,7 @@ export default function ProfilePage() {
                     <Brain className="w-7 h-7 text-slate-400" />
                   </div>
                   <p className="text-slate-500 font-medium">Chưa có kỹ năng nào được trích xuất</p>
-                  <p className="text-xs text-slate-400 mt-1">Hãy tải lên CV để AI phân tích và trích xuất kỹ năng của bạn.</p>
+                  <p className="text-xs text-slate-400 mt-1">Hãy tải lên CV để hệ thống phân tích và trích xuất kỹ năng của bạn.</p>
                   <Link href="/cv" className="mt-4 inline-block">
                     <Button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">
                       <Upload className="w-4 h-4 mr-2" /> Tải CV ngay
@@ -498,13 +531,13 @@ export default function ProfilePage() {
               >
                 <div>
                   <div className="font-bold">Tìm việc phù hợp</div>
-                  <div className="text-xs text-white/75 mt-0.5">AI gợi ý dựa trên kỹ năng</div>
+                  <div className="text-xs text-white/75 mt-0.5">Hệ thống gợi ý dựa trên kỹ năng</div>
                 </div>
                 <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </motion.div>
             </Link>
 
-            <Link href="/upload">
+            <Link href="/cv">
               <motion.div
                 whileHover={{ y: -3, scale: 1.02 }}
                 className="flex items-center justify-between p-5 bg-white border-2 border-slate-200 rounded-2xl text-slate-900 hover:border-indigo-300 transition-colors cursor-pointer group"

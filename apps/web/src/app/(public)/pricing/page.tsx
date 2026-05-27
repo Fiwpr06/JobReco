@@ -19,10 +19,10 @@ const pricingData = {
       billing_yearly: "Forever free",
       features: [
         "✅ Upload 3 CVs/tháng",
-        "✅ AI matching cơ bản",
+        "✅ Hệ thống matching cơ bản",
         "✅ Xem top 10 công việc phù hợp",
         "✅ Skill extraction",
-        "❌ AI Explanation chi tiết",
+        "❌ Giải thích chi tiết từ hệ thống",
         "❌ Learning Roadmap",
         "❌ Priority matching"
       ],
@@ -40,7 +40,7 @@ const pricingData = {
       billing_yearly: "590k VND/năm (tiết kiệm 17%)",
       features: [
         "✅ Unlimited CV uploads",
-        "✅ AI Explanation chi tiết",
+        "✅ Giải thích chi tiết từ hệ thống",
         "✅ Personalized Learning Roadmap",
         "✅ Skill Gap Analysis",
         "✅ Priority matching (top 50 jobs)",
@@ -63,11 +63,11 @@ const pricingData = {
       billing_yearly: "Custom pricing",
       features: [
         "✅ Recruiter Dashboard",
-        "✅ AI Candidate Ranking",
+        "✅ Hệ thống xếp hạng ứng viên",
         "✅ Skill Heatmap Analytics",
         "✅ Bulk CV screening (1000+ CVs)",
         "✅ API Integration",
-        "✅ Custom AI model training",
+        "✅ Đào tạo mô hình hệ thống tùy chỉnh",
         "✅ White-label solution",
         "✅ Dedicated support",
         "✅ Advanced analytics & reporting",
@@ -82,7 +82,7 @@ const pricingData = {
 const comparisonFeatures = [
   { name: "CV uploads", free: "3", premium: "∞", enterprise: "∞" },
   { name: "Job matches", free: "10", premium: "50", enterprise: "All" },
-  { name: "AI Explain", free: "❌", premium: "✅", enterprise: "✅" },
+  { name: "Giải thích từ hệ thống", free: "❌", premium: "✅", enterprise: "✅" },
   { name: "Roadmap", free: "❌", premium: "✅", enterprise: "✅" },
   { name: "Recruiter Dashboard", free: "❌", premium: "❌", enterprise: "✅" },
   { name: "API Integration", free: "❌", premium: "❌", enterprise: "✅" },
@@ -157,7 +157,7 @@ export default function PricingPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-4xl md:text-5xl font-black text-slate-900 mb-6 drop-shadow-sm tracking-tight"
           >
-            Nâng tầm sự nghiệp với <span className="text-indigo-600">AI Matching</span>
+            Nâng tầm sự nghiệp với <span className="text-indigo-600">Hệ thống Matching</span>
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}

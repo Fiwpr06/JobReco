@@ -70,7 +70,12 @@ export default function ApplicationsHistoryPage() {
 
   return (
     <div className="container max-w-4xl py-10">
-      <div className="mb-8">
+      <div className="mb-8 relative">
+        <div className="absolute top-0 right-0">
+          <Link href="/">
+            <Button variant="outline">Quay lại Trang chủ</Button>
+          </Link>
+        </div>
         <h1 className="text-3xl font-bold tracking-tight text-primary">Lịch sử ứng tuyển</h1>
         <p className="text-muted-foreground mt-2">Theo dõi trạng thái các công việc bạn đã nộp CV trên hệ thống.</p>
       </div>
@@ -80,9 +85,9 @@ export default function ApplicationsHistoryPage() {
           <Card>
             <CardContent className="py-10 text-center">
               <p className="text-muted-foreground mb-4">Bạn chưa ứng tuyển công việc nào.</p>
-              <Button asChild>
-                <Link href="/dashboard/jobs">Tìm việc ngay</Link>
-              </Button>
+              <Link href="/jobs">
+                <Button>Tìm việc ngay</Button>
+              </Link>
             </CardContent>
           </Card>
         ) : (
@@ -92,7 +97,7 @@ export default function ApplicationsHistoryPage() {
                 <div className="flex flex-col md:flex-row justify-between gap-4">
                   <div className="space-y-2 flex-1">
                     <div className="flex items-center gap-2">
-                      <Link href={`/dashboard/jobs/${app.job_id}`} className="text-xl font-semibold hover:text-primary transition-colors">
+                      <Link href={`/jobs/${app.job_id}`} className="text-xl font-semibold hover:text-primary transition-colors">
                         {app.job_title}
                       </Link>
                       {app.source === 'crawled' && (
@@ -118,17 +123,17 @@ export default function ApplicationsHistoryPage() {
                     {getStatusBadge(app.status)}
                     
                     {app.source === 'crawled' ? (
-                      <Button variant="outline" size="sm" asChild className="w-full">
-                        <a href={app.apply_url} target="_blank" rel="noopener noreferrer">
+                      <a href={app.apply_url} target="_blank" rel="noopener noreferrer" className="w-full">
+                        <Button variant="outline" size="sm" className="w-full">
                           Xem trên Web <ExternalLink className="w-3 h-3 ml-2" />
-                        </a>
-                      </Button>
+                        </Button>
+                      </a>
                     ) : app.cv_url ? (
-                      <Button variant="outline" size="sm" asChild className="w-full text-blue-600 border-blue-200 hover:bg-blue-50">
-                        <a href={app.cv_url} target="_blank" rel="noopener noreferrer">
+                      <a href={app.cv_url} target="_blank" rel="noopener noreferrer" className="w-full">
+                        <Button variant="outline" size="sm" className="w-full text-blue-600 border-blue-200 hover:bg-blue-50">
                           Xem CV đã nộp <FileText className="w-3 h-3 ml-2" />
-                        </a>
-                      </Button>
+                        </Button>
+                      </a>
                     ) : null}
                   </div>
                 </div>

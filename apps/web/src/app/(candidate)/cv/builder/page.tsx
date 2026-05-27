@@ -123,7 +123,7 @@ export default function CvBuilderPage() {
   return (
     <div className="max-w-3xl mx-auto pb-12">
       <div className="mb-8">
-        <h1 className="font-fraunces text-3xl font-bold text-primary mb-2">Build Your AI Profile</h1>
+        <h1 className="font-fraunces text-3xl font-bold text-primary mb-2">Xây Dựng Hồ Sơ Của Bạn</h1>
         <p className="text-muted">The more accurate your data, the better our HGAT model can match you.</p>
       </div>
 
@@ -173,7 +173,7 @@ export default function CvBuilderPage() {
 
         {step === 2 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-            <h2 className="text-xl font-bold border-b border-border pb-2 mb-4">Core Skills (Crucial for AI)</h2>
+            <h2 className="text-xl font-bold border-b border-border pb-2 mb-4">Core Skills (Quan trọng cho hệ thống)</h2>
             <div className="bg-elevated/50 p-4 rounded-lg border border-border border-dashed space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                 <div className="md:col-span-5 space-y-1">

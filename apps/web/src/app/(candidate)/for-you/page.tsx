@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { MatchResult, CV } from "@/lib/types";
@@ -16,12 +16,15 @@ import {
 } from "@/components/ui/select";
 import { RefreshCw, FileWarning } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import MatchExplanationModal from "@/components/demo/match-explanation-modal";
 import SkillRoadmapTimeline from "@/components/demo/skill-roadmap-timeline";
 import { AnimatePresence } from "framer-motion";
 
-export default function ForYouPage() {
-  const [selectedCvId, setSelectedCvId] = useState<string>("");
+function ForYouContent() {
+  const searchParams = useSearchParams();
+  const urlCvId = searchParams.get("cvId");
+  const [selectedCvId, setSelectedCvId] = useState<string>(urlCvId || "");
   const [selectedJobResult, setSelectedJobResult] = useState<MatchResult | null>(null);
   const [showRoadmap, setShowRoadmap] = useState(false);
 
@@ -42,10 +45,14 @@ export default function ForYouPage() {
 
   useEffect(() => {
     if (cvs && cvs.length > 0 && !selectedCvId) {
-      const primary = cvs.find((c) => c.is_primary) || cvs[0];
-      setSelectedCvId(primary.id.toString());
+      if (urlCvId && cvs.some(c => c.id.toString() === urlCvId)) {
+        setSelectedCvId(urlCvId);
+      } else {
+        const primary = cvs.find((c) => c.is_primary) || cvs[0];
+        setSelectedCvId(primary.id.toString());
+      }
     }
-  }, [cvs, selectedCvId]);
+  }, [cvs, selectedCvId, urlCvId]);
 
   const matchMutation = useMutation({
     mutationFn: async (cvId: string) => {
@@ -218,5 +225,17 @@ export default function ForYouPage() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+export default function ForYouPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-[400px] items-center justify-center">
+        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
+      </div>
+    }>
+      <ForYouContent />
+    </Suspense>
   );
 }

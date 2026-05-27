@@ -50,7 +50,7 @@ export default function BillingPage() {
     );
   }
 
-  const isPremium = session.user?.subscription_tier === 'premium';
+  const isPremium = (session.user as any)?.subscription_tier === 'premium';
   
   // Format dates
   const formatDate = (dateString?: string) => {
@@ -83,7 +83,7 @@ export default function BillingPage() {
                   <Sparkles className="h-8 w-8 mr-3" />
                   <div>
                     <div className="text-2xl font-black">Premium</div>
-                    <div className="text-sm font-medium opacity-80">Full AI Features</div>
+                    <div className="text-sm font-medium opacity-80">Đầy đủ tính năng hệ thống</div>
                   </div>
                 </div>
               ) : (
@@ -97,12 +97,12 @@ export default function BillingPage() {
               )}
             </div>
 
-            {isPremium && session.user?.premium_until && (
+            {isPremium && (session.user as any)?.premium_until && (
               <div className="bg-white rounded-xl p-4 border border-indigo-100 mb-6 flex items-start">
                 <Calendar className="h-5 w-5 text-indigo-500 mr-3 mt-0.5" />
                 <div>
                   <div className="text-xs text-slate-500 mb-1">Ngày hết hạn</div>
-                  <div className="font-semibold text-slate-900">{formatDate(session.user.premium_until)}</div>
+                  <div className="font-semibold text-slate-900">{formatDate((session.user as any).premium_until)}</div>
                 </div>
               </div>
             )}

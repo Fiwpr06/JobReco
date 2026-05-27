@@ -80,7 +80,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="mt-8 max-w-2xl text-lg leading-8 text-muted mx-auto lg:mx-0">
-              Upload CV và để JobReco phân tích kỹ năng, kinh nghiệm và định
+              Tải CV lên và để hệ thống phân tích kỹ năng, kinh nghiệm và định
               hướng nghề nghiệp dựa trên mạng thần kinh Graph neural network để
               gợi ý những công việc tốt nhất cho bạn.
             </p>
@@ -88,7 +88,7 @@ export default function LandingPage() {
             <div className="mt-10 flex flex-col gap-4 sm:flex-row justify-center lg:justify-start">
               <Link href="/cv">
                 <button className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-8 py-4 font-bold text-white shadow-xl shadow-indigo-200 transition hover:-translate-y-1 hover:bg-indigo-700">
-                  Upload CV Ngay <ArrowRight size={20} />
+                  Tải CV Lên Ngay <ArrowRight size={20} />
                 </button>
               </Link>
 
@@ -232,28 +232,38 @@ export default function LandingPage() {
             Kỹ năng đang hot trong tuần
           </h3>
         </div>
-        <div className="flex gap-4 px-6 overflow-x-auto pb-4 hide-scrollbar">
-          {loading
-            ? [1, 2, 3, 4, 5].map((i) => (
+        <div className="relative flex overflow-hidden whitespace-nowrap bg-base/50 pb-4 before:absolute before:left-0 before:top-0 before:z-10 before:h-full before:w-8 before:bg-gradient-to-r before:from-base before:to-transparent after:absolute after:right-0 after:top-0 after:z-10 after:h-full after:w-8 after:bg-gradient-to-l after:from-base after:to-transparent">
+          {loading ? (
+            <div className="flex gap-4 px-6 overflow-x-auto hide-scrollbar w-full">
+              {[1, 2, 3, 4, 5].map((i) => (
                 <div
                   key={i}
                   className="h-12 w-36 bg-elevated rounded-full animate-pulse flex-shrink-0"
                 />
-              ))
-            : trends.map((trend, i) => (
+              ))}
+            </div>
+          ) : (
+            <motion.div
+              className="flex gap-4 min-w-max px-6"
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{ ease: "linear", duration: 25, repeat: Infinity }}
+            >
+              {[...trends, ...trends].map((trend, i) => (
                 <div
                   key={i}
-                  className="flex-shrink-0 px-5 py-3 rounded-full border border-border-mid bg-surface flex items-center gap-3 hover:border-indigo-500/50 transition-colors"
+                  className="flex-shrink-0 px-6 py-4 rounded-full border border-border-mid bg-surface flex items-center gap-3 hover:border-indigo-500/50 transition-colors shadow-sm"
                 >
                   <span className="font-jetbrains-mono font-medium text-primary">
                     {trend.name}
                   </span>
                   <span className="w-2 h-2 rounded-full bg-success" />
                   <span className="text-xs text-muted">
-                    Growth: {trend.growth_rate}%
+                    Tăng trưởng: {trend.growth_rate}%
                   </span>
                 </div>
               ))}
+            </motion.div>
+          )}
         </div>
       </section>
 
@@ -346,7 +356,7 @@ export default function LandingPage() {
             {[
               {
                 step: "01",
-                title: "Upload CV",
+                title: "Tải lên CV",
                 description:
                   "Tải CV PDF/DOCX hiện có của bạn lên hệ thống chỉ với một cú nhấp chuột.",
               },
@@ -461,7 +471,7 @@ export default function LandingPage() {
                   </h2>
 
                   <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-300">
-                    Upload CV ngay hôm nay để trí tuệ nhân tạo của chúng tôi
+                    Tải CV ngay hôm nay để hệ thống của chúng tôi
                     giúp bạn mở khóa những cơ hội nghề nghiệp tốt nhất thị
                     trường.
                   </p>

@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 
 import { BookOpen, TrendingUp, Target, Rocket } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
 
 export default function SkillsAdvisorPage() {
   const { data: primaryCv } = useQuery<CV>({
@@ -19,7 +20,16 @@ export default function SkillsAdvisorPage() {
 
   const { data: skillGaps, isLoading: gapsLoading } = useQuery<SkillGap[]>({
     queryKey: ['skillGaps', primaryCv?.id],
-    queryFn: async () => (await api.get(`/api/v1/skills/gaps?cv_id=${primaryCv?.id}`)).data,
+    queryFn: async () => {
+      const res = await api.get(`/api/v1/skills/gaps?cv_id=${primaryCv?.id}`);
+      return (res.data.high_priority_gaps || []).map((gap: any) => ({
+        skill: gap.name,
+        tier: gap.learnability_tier,
+        omega: 0,
+        slwg_penalty: gap.percentage_jobs_unlocked_if_learned,
+        suggestion: gap.action_plan
+      }));
+    },
     enabled: !!primaryCv?.id,
   });
 
@@ -31,16 +41,16 @@ export default function SkillsAdvisorPage() {
   const gaps = skillGaps || [];
   const trendData = trends || [];
 
-  const userSkills = primaryCv?.skills.map(s => s.skill_name) || ['Python', 'React', 'TypeScript'];
-  const aheadSkills = trendData.filter(t => userSkills.includes(t.skill_name));
+  const userSkills = (primaryCv?.skills.map(s => s.skill?.name).filter(Boolean) as string[]) ?? [];
+  const aheadSkills = trendData.filter(t => userSkills.includes(t.name));
 
   if (!primaryCv && !gapsLoading) {
     return (
       <div className="text-center py-20 max-w-md mx-auto">
         <Target className="w-12 h-12 text-muted mx-auto mb-4" />
-        <h2 className="text-2xl font-bold font-fraunces mb-2">No Data Available</h2>
-        <p className="text-muted mb-6">Create a CV profile to unlock personalized skill advice and learnability paths.</p>
-        <Link href="/cv/builder"><Button className="w-full bg-accent">Create Profile</Button></Link>
+        <h2 className="text-2xl font-bold font-fraunces mb-2">Không Có Dữ Liệu</h2>
+        <p className="text-muted mb-6">Tạo hồ sơ CV để mở khóa lời khuyên kỹ năng cá nhân hóa và lộ trình học tập.</p>
+        <Link href="/cv/builder"><Button className="w-full bg-accent">Tạo Hồ Sơ</Button></Link>
       </div>
     );
   }
@@ -48,20 +58,21 @@ export default function SkillsAdvisorPage() {
   return (
     <div className="max-w-7xl mx-auto pb-12">
       <div className="mb-8">
-        <h1 className="font-fraunces text-3xl font-bold text-primary mb-2">Skills Advisor</h1>
-        <p className="text-muted">Personalized up-skilling dashboard powered by SLWG graph analysis.</p>
+        <h1 className="font-fraunces text-3xl font-bold text-primary mb-2">Cố Vấn Kỹ Năng</h1>
+        <p className="text-muted">Bảng điều khiển nâng cao kỹ năng cá nhân hóa dựa trên phân tích đồ thị SLWG.</p>
       </div>
 
       <div className="grid lg:grid-cols-12 gap-8">
         {/* LEFT: YOUR GAPS (55%) */}
         <div className="lg:col-span-7 space-y-6">
           <h2 className="font-fraunces text-xl font-bold flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-accent" /> Your Top Gaps
+            <BookOpen className="w-5 h-5 text-accent" /> Lỗ Hổng Kỹ Năng Của Bạn
           </h2>
           
           {gapsLoading ? (
             <div className="space-y-4"><Skeleton className="h-32 w-full bg-surface" /><Skeleton className="h-32 w-full bg-surface" /></div>
           ) : (
+            <>
               {gaps.length === 0 ? (
                 <div className="text-center p-8 bg-surface border border-border rounded-xl">
                   <p className="text-muted">Chưa phát hiện lỗ hổng kỹ năng nào.</p>
@@ -76,7 +87,7 @@ export default function SkillsAdvisorPage() {
                           <SkillBadge skill="" tier={gap.tier as any} />
                         </div>
                         <div className="text-right">
-                          <div className="text-xs text-muted uppercase tracking-wider mb-1">Penalty</div>
+                          <div className="text-xs text-muted uppercase tracking-wider mb-1">Điểm trừ</div>
                           <div className="font-jetbrains-mono text-danger font-bold">-{gap.slwg_penalty.toFixed(2)}</div>
                         </div>
                       </div>
@@ -90,55 +101,75 @@ export default function SkillsAdvisorPage() {
                   </Card>
                 ))
               )}
+            </>
           )}
         </div>
 
         {/* RIGHT: MARKET TRENDS (45%) */}
         <div className="lg:col-span-5 space-y-6">
           <h2 className="font-fraunces text-xl font-bold flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-success" /> Market Trends
+            <TrendingUp className="w-5 h-5 text-success" /> Xu Hướng Thị Trường
           </h2>
           
-          <Card className="bg-surface border-border">
-            <CardHeader className="pb-0">
-              <CardTitle className="text-sm text-muted font-normal">Top 8 requested skills</CardTitle>
+          <Card className="bg-surface border-border overflow-hidden">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-sm text-muted font-normal">Các kỹ năng thịnh hành nhất trong tuần</CardTitle>
             </CardHeader>
-            <CardContent className="h-80 pt-6">
-              {trendsLoading ? (
-                <div className="flex items-center justify-center h-full"><Skeleton className="h-full w-full" /></div>
-              ) : trendData.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-muted">Chưa có dữ liệu xu hướng</div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={trendData.slice(0, 8)} layout="vertical" margin={{ left: 10, right: 20 }}>
-                    <XAxis type="number" hide />
-                    <YAxis dataKey="skill_name" type="category" width={80} tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-jetbrains-mono)' }} axisLine={false} tickLine={false} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
-                      itemStyle={{ color: 'var(--success)' }}
-                    />
-                    <Bar dataKey="demand_score" radius={[0, 4, 4, 0]} barSize={16}>
-                      {trendData.slice(0, 8).map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={userSkills.includes(entry.skill_name) ? 'var(--success)' : 'var(--accent)'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+            <CardContent className="pt-0 flex flex-col gap-4 h-full">
+              {!trendsLoading && trendData.length > 0 && (
+                <div className="relative w-[calc(100%+3rem)] -mx-6 flex overflow-hidden whitespace-nowrap bg-success/5 py-3 border-y border-success/20 before:absolute before:left-0 before:top-0 before:z-10 before:h-full before:w-8 before:bg-gradient-to-r before:from-surface before:to-transparent after:absolute after:right-0 after:top-0 after:z-10 after:h-full after:w-8 after:bg-gradient-to-l after:from-surface after:to-transparent">
+                  <motion.div
+                    className="flex gap-4 min-w-max px-4"
+                    animate={{ x: ["0%", "-50%"] }}
+                    transition={{ ease: "linear", duration: 20, repeat: Infinity }}
+                  >
+                    {[...trendData, ...trendData].map((entry, index) => (
+                      <div key={`mq-${index}`} className="flex items-center gap-2 bg-background px-3 py-1.5 rounded-full border border-border shadow-sm">
+                        <span className="font-medium text-sm text-foreground">{entry.name}</span>
+                        <span className="text-xs text-muted-foreground bg-surface px-1.5 py-0.5 rounded-md">🔥 {entry.job_count} việc làm</span>
+                      </div>
+                    ))}
+                  </motion.div>
+                </div>
               )}
+
+              <div className="h-64 mt-2">
+                {trendsLoading ? (
+                  <div className="flex items-center justify-center h-full"><Skeleton className="h-full w-full" /></div>
+                ) : trendData.length === 0 ? (
+                  <div className="flex items-center justify-center h-full text-muted">Chưa có dữ liệu xu hướng</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={trendData.slice(0, 8)} layout="vertical" margin={{ left: 10, right: 20 }}>
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" width={80} tick={{ fill: 'var(--text-muted)', fontSize: 11, fontFamily: 'var(--font-jetbrains-mono)' }} axisLine={false} tickLine={false} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'var(--bg-elevated)', borderColor: 'var(--border)' }}
+                        itemStyle={{ color: 'var(--success)' }}
+                      />
+                      <Bar dataKey="job_count" radius={[0, 4, 4, 0]} barSize={16}>
+                        {trendData.slice(0, 8).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={userSkills.includes(entry.name) ? 'var(--success)' : 'var(--accent)'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
             </CardContent>
           </Card>
 
           <Card className="bg-success/5 border-success/20">
             <CardContent className="p-5">
-              <h3 className="font-fraunces font-bold text-success mb-3">You're ahead on:</h3>
-              <p className="text-sm text-muted mb-4">You already possess these high-demand market skills.</p>
+              <h3 className="font-fraunces font-bold text-success mb-3">Kỹ năng bạn đang dẫn đầu:</h3>
+              <p className="text-sm text-muted mb-4">Bạn đã sở hữu những kỹ năng được thị trường săn đón này.</p>
               <div className="flex flex-wrap gap-2">
                 {aheadSkills.length > 0 ? (
                   aheadSkills.map(s => (
-                    <SkillBadge key={s.skill_name} skill={s.skill_name} matched />
+                    <SkillBadge key={s.name} skill={s.name} matched />
                   ))
                 ) : (
-                  <span className="text-sm italic text-muted">Keep learning to catch up with trends!</span>
+                  <span className="text-sm italic text-muted">Hãy tiếp tục học hỏi để bắt kịp xu hướng!</span>
                 )}
               </div>
             </CardContent>
