@@ -14,15 +14,18 @@ async def create_admin():
         check_stmt = text("SELECT id FROM users WHERE email = 'admin@graphhire.com'")
         result = await session.execute(check_stmt)
         if result.scalar_one_or_none():
-            print("Admin user already exists")
+            update_stmt = text("UPDATE users SET is_verified = true, is_active = true WHERE email = 'admin@graphhire.com'")
+            await session.execute(update_stmt)
+            await session.commit()
+            print("Admin user updated to be verified.")
             print("Email: admin@graphhire.com")
             print("Password: admin123")
             return
         
         hashed_password = AuthService.get_password_hash('admin123')
         insert_stmt = text("""
-            INSERT INTO users (email, hashed_password, full_name, role, is_active)
-            VALUES ('admin@graphhire.com', :hashed_password, 'System Administrator', 'admin', true)
+            INSERT INTO users (email, hashed_password, full_name, role, is_active, is_verified, created_at)
+            VALUES ('admin@graphhire.com', :hashed_password, 'System Administrator', 'admin', true, true, NOW())
         """)
         
         await session.execute(insert_stmt, {"hashed_password": hashed_password})
