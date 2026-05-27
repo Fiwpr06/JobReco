@@ -1,7 +1,5 @@
 'use client';
 
-import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
-
 interface RadarChartProps {
   scores: {
     skill_match: number;
@@ -14,34 +12,29 @@ interface RadarChartProps {
 
 export function MatchRadarChart({ scores }: RadarChartProps) {
   const data = [
-    { dimension: 'Skills',     score: Math.round(scores.skill_match * 100) },
-    { dimension: 'Experience', score: Math.round(scores.experience_match * 100) },
-    { dimension: 'Salary',     score: Math.round(scores.salary_match * 100) },
-    { dimension: 'Location',   score: Math.round(scores.location_match * 100) },
-    { dimension: 'Hệ thống đánh giá',   score: Math.round(scores.hgat_cosine * 100) },
+    { label: 'Kỹ năng', score: Math.round(scores.skill_match * 100), color: 'bg-blue-500' },
+    { label: 'Kinh nghiệm', score: Math.round(scores.experience_match * 100), color: 'bg-indigo-500' },
+    { label: 'Mức lương', score: Math.round(scores.salary_match * 100), color: 'bg-emerald-500' },
+    { label: 'Địa điểm', score: Math.round(scores.location_match * 100), color: 'bg-amber-500' },
+    { label: 'Hệ thống AI', score: Math.round(scores.hgat_cosine * 100), color: 'bg-purple-500' },
   ];
 
   return (
-    <div className="w-full h-full min-h-[300px]">
-      <ResponsiveContainer width="100%" height="100%">
-        <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
-          <PolarGrid stroke="var(--border-mid)" />
-          <PolarAngleAxis 
-            dataKey="dimension" 
-            tick={{ fill: 'var(--text-muted)', fontSize: 12, fontFamily: 'var(--font-jetbrains-mono)' }} 
-          />
-          <Radar
-            name="Match Score"
-            dataKey="score"
-            stroke="var(--accent)"
-            fill="var(--accent)"
-            fillOpacity={0.3}
-            animationBegin={0}
-            animationDuration={800}
-            animationEasing="ease-out"
-          />
-        </RadarChart>
-      </ResponsiveContainer>
+    <div className="w-full flex flex-col gap-4 pt-2">
+      {data.map((item, index) => (
+        <div key={index} className="flex flex-col gap-1.5">
+          <div className="flex justify-between items-center text-sm font-medium">
+            <span className="text-slate-700">{item.label}</span>
+            <span className="text-slate-900 font-bold font-jetbrains-mono">{item.score}%</span>
+          </div>
+          <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
+            <div 
+              className={`h-full ${item.color} rounded-full transition-all duration-1000 ease-out`}
+              style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }}
+            />
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -57,7 +57,7 @@ export function ExplanationPanel({ matchData }: ExplanationPanelProps) {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save("AI_Explanation_Report.pdf");
+      pdf.save("Bao_Cao_He_Thong.pdf");
     } catch (error) {
       console.error("Failed to export PDF", error);
     }

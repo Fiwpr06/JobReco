@@ -66,7 +66,7 @@ export function MatchResultCard({ result, onShowAnalysis }: MatchResultCardProps
           </div>
           <div className="flex flex-col items-end">
             <div className="font-jetbrains-mono text-4xl font-bold text-accent mb-1">
-              {Math.round(scores.overall)}%
+              {Math.round(scores.overall * 100)}%
             </div>
             <div className="text-xs text-muted font-medium uppercase tracking-wider">
               Độ Phù Hợp
@@ -124,7 +124,7 @@ export function MatchResultCard({ result, onShowAnalysis }: MatchResultCardProps
           )}
         </div>
 
-        {/* AI Explanation */}
+        {/* Giải thích từ hệ thống */}
         {result.explanation && (
           <div className="bg-elevated/50 border border-border p-3 rounded-md mb-6">
             <p className="text-sm text-muted italic">
@@ -220,7 +220,7 @@ export function MatchResultCard({ result, onShowAnalysis }: MatchResultCardProps
 }
 
 function ScoreBar({ label, score }: { label: string; score: number }) {
-  const percentage = Math.round(score);
+  const percentage = Math.round(score * 100);
   return (
     <div>
       <div className="flex justify-between items-center mb-2">

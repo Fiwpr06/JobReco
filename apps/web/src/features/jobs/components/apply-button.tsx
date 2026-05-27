@@ -70,14 +70,16 @@ export function ApplyButton({ jobId, applyUrl, className }: ApplyButtonProps) {
   if (isSystemJob) {
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button 
-            className={`bg-accent hover:bg-accent/90 text-white shadow-[0_0_15px_var(--accent-glow)] transition-all hover:scale-[1.02] ${className}`}
-          >
-            Nộp đơn trực tiếp
-            <UploadCloud className="w-4 h-4 ml-2" />
-          </Button>
-        </DialogTrigger>
+        <DialogTrigger 
+          render={
+            <Button 
+              className={`bg-accent hover:bg-accent/90 text-white shadow-[0_0_15px_var(--accent-glow)] transition-all hover:scale-[1.02] ${className}`}
+            >
+              Nộp đơn trực tiếp
+              <UploadCloud className="w-4 h-4 ml-2" />
+            </Button>
+          }
+        />
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Nộp đơn ứng tuyển</DialogTitle>

@@ -152,7 +152,7 @@ export function CandidateResultCard({ result, onShowAnalysis }: CandidateResultC
           )}
         </div>
 
-        {/* AI Explanation */}
+        {/* Giải thích từ hệ thống */}
         {result.explanation && (
           <div className="bg-indigo-50/50 border border-indigo-100 p-4 rounded-xl mb-6">
             <p className="text-sm text-slate-700 font-medium">
