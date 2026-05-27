@@ -5,6 +5,7 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 import asyncio
 import datetime
+from datetime import timezone as tz
 import os
 import torch
 import numpy as np
@@ -22,9 +23,10 @@ from app.ml.hgat.slwg import SLWGComputer
 from app.ml.hgat.graph_builder import RecruitmentGraphBuilder
 from app.ml.embedding import SentenceTransformerEmbedding
 from app.utils.cache import hybrid_cache
+from app.services.groq_service import GroqService
 from app.config import settings
 
-from app.ml.faiss_index import FAISSIndexManager
+from app.ml.faiss_index import FAISSIndexManager, get_faiss_manager
 
 router = APIRouter()
 
@@ -110,19 +112,15 @@ async def get_job_recommendations(
             detail="CV has not been processed for matching yet. Please wait for analysis to complete."
         )
     
-    # 2. Use FAISS index to query top-50 candidate job IDs if index exists
-    index_path = os.path.join(os.getcwd(), "faiss_indexes", "index.faiss")
+    # 2. Use FAISS index to query top-50 candidate job IDs
     candidate_job_ids = []
-    
-    if os.path.exists(index_path):
-        try:
-            manager = FAISSIndexManager(dimension=settings.EMBEDDING_DIM)
-            manager.load(index_path)
-            # Search top 50 jobs
+    try:
+        manager = get_faiss_manager(dimension=settings.EMBEDDING_DIM)
+        if manager.total_vectors > 0:
             search_results = manager.search(cv.embedding, k=settings.FAISS_TOP_K_CANDIDATES)
             candidate_job_ids = [job_id for job_id, _ in search_results]
-        except Exception as e:
-            print(f"FAISS search failed: {e}")
+    except Exception as e:
+        print(f"FAISS search failed: {e}")
             
     # Fetch active jobs in database (restricted by FAISS candidate IDs if available)
     if candidate_job_ids:
@@ -150,7 +148,7 @@ async def get_job_recommendations(
         return MatchAPIResponse(
             cv_id=cv.id,
             model_version="hgat_v1",
-            computed_at=datetime.datetime.utcnow(),
+            computed_at=datetime.datetime.now(tz.utc),
             total_candidates_evaluated=0,
             results=[]
         )
@@ -341,24 +339,24 @@ async def get_job_recommendations(
         )
         
         # Write beautiful explanation breakdown
-        explanation = f"Matching profile '{cv.title_en}' against job '{job.title_en or job.title_vi}'. "
+        explanation = f"So khớp hồ sơ '{cv.title_en}' với công việc '{job.title_vi or job.title_en}'. "
         if overall_score >= 0.8:
-            explanation += "You are an excellent match for this position! "
+            explanation += "Bạn là một ứng cử viên xuất sắc cho vị trí này! "
         elif overall_score >= 0.6:
-            explanation += "You are a strong candidate with good alignment. "
+            explanation += "Bạn là ứng cử viên tiềm năng với mức độ phù hợp tốt. "
         else:
-            explanation += "You satisfy some requirements but have notable skill/experience gaps. "
+            explanation += "Bạn đáp ứng một số yêu cầu nhưng vẫn còn một vài khoảng cách về kỹ năng hoặc kinh nghiệm. "
             
-        explanation += f"We found {len(matching_names)} matching skills ({', '.join(matching_names[:5])})."
+        explanation += f"Chúng tôi tìm thấy {len(matching_names)} kỹ năng phù hợp ({', '.join(matching_names[:5])})."
         
         if missing_required:
             missing_names = [s.skill_name for s in missing_required]
-            explanation += f" However, you are missing critical required skills: {', '.join(missing_names[:3])}."
+            explanation += f" Tuy nhiên, bạn đang thiếu một số kỹ năng bắt buộc quan trọng: {', '.join(missing_names[:3])}."
             
             # Focus on easy learnable skills
             easy_skills = [s.skill_name for s in missing_required if s.learnability_tier == "easy"]
             if easy_skills:
-                explanation += f" You can quickly bridge these gaps by studying '{', '.join(easy_skills[:2])}', which are highly learnable in a few weeks."
+                explanation += f" Bạn có thể nhanh chóng cải thiện các khoảng cách này bằng cách học thêm về '{', '.join(easy_skills[:2])}' - các kỹ năng dễ tiếp thu trong vài tuần."
         
         # [CRIT-3 FIX] Use job.apply_url (the real external TopCV/job-board URL stored in DB)
         # instead of hardcoding http://localhost:8000/... which breaks in all non-local deployments.
@@ -379,7 +377,7 @@ async def get_job_recommendations(
             skill_gap_analysis=gap_analysis,
             explanation=explanation,
             apply_url=apply_redirect_url,
-            computed_at=datetime.datetime.utcnow(),
+            computed_at=datetime.datetime.now(tz.utc),
             job=job
         ))
         
@@ -453,7 +451,7 @@ async def get_job_recommendations(
                     tier=x.learnability_tier,
                     omega=x.learnability_weight,
                     slwg_penalty=x.penalty_applied,
-                    suggestion=f"Bridge this required skill gap by studying '{x.skill_name}'."
+                    suggestion=f"Bồi dưỡng kỹ năng bắt buộc này bằng cách học '{x.skill_name}'."
                 ))
             
         missing_pref = []
@@ -464,7 +462,7 @@ async def get_job_recommendations(
                     tier=x.learnability_tier,
                     omega=x.learnability_weight,
                     slwg_penalty=x.penalty_applied,
-                    suggestion=f"Bridge this preferred skill gap by studying '{x.skill_name}'."
+                    suggestion=f"Cải thiện kỹ năng ưu tiên này bằng cách học '{x.skill_name}'."
                 ))
             
         skill_analysis_test = SkillGapAnalysisTest(
@@ -502,8 +500,60 @@ async def get_job_recommendations(
     return MatchAPIResponse(
         cv_id=cv.id,
         model_version="hgat_v1",
-        computed_at=datetime.datetime.utcnow(),
+        computed_at=datetime.datetime.now(tz.utc),
         total_candidates_evaluated=len(jobs),
         results=api_results
     )
+
+
+@router.get("/{job_id}/explain-groq")
+async def explain_match_with_groq(
+    job_id: int,
+    cv_id: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    # Retrieve the match record
+    stmt = select(JobMatch).options(
+        selectinload(JobMatch.job),
+        selectinload(JobMatch.cv)
+    ).where(JobMatch.job_id == job_id)
+    
+    if cv_id:
+        stmt = stmt.where(JobMatch.cv_id == cv_id)
+    else:
+        # Get the match for the user's primary CV
+        stmt = stmt.join(CV, JobMatch.cv_id == CV.id).where(
+            CV.user_id == current_user.id,
+            CV.is_primary == True
+        )
+        
+    result = await db.execute(stmt)
+    match = result.scalars().first()
+    
+    if not match:
+        raise HTTPException(status_code=404, detail="JobMatch record not found. Please run matching first.")
+        
+    groq_service = GroqService()
+    
+    # Parse skill gap analysis
+    gap_analysis = match.skill_gap_analysis or {}
+    matched_skills = gap_analysis.get("matching_skills", [])
+    missing_req = gap_analysis.get("missing_required_skills", [])
+    missing_pref = gap_analysis.get("missing_preferred_skills", [])
+    
+    explanation = await groq_service.generate_explanation(
+        cv_title=match.cv.title_en or "Hồ sơ ứng viên",
+        job_title=match.job.title_en or match.job.title_vi or "Công việc",
+        overall_score=match.overall_score,
+        matched_skills=matched_skills,
+        missing_required=missing_req,
+        missing_preferred=missing_pref
+    )
+    
+    # Update the match record with Groq explanation
+    match.explanation = explanation
+    await db.commit()
+    
+    return {"explanation": explanation}
 

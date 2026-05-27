@@ -29,7 +29,7 @@ class JobMatchResponse(BaseModel):
     slwg_total_penalty: float
     skill_gap_analysis: Optional[SkillGapAnalysis] = None
     explanation: Optional[str] = None
-    apply_url: str  # redirect apply target
+    apply_url: Optional[str] = None  # redirect apply target
     rank_position: Optional[int] = None
     model_version: str = "hgat-v1"
     computed_at: datetime
@@ -79,7 +79,7 @@ class MatchResultItem(BaseModel):
     salary_min_vnd: Optional[float] = None
     salary_max_vnd: Optional[float] = None
     job_type: Optional[str] = None
-    apply_url: str
+    apply_url: Optional[str] = None
     scores: MatchResultScores
     skill_analysis: SkillGapAnalysisTest
     explanation: str
