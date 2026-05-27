@@ -4,9 +4,10 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import AsyncSessionLocal
 from app.models.user import User
-from app.schemas.auth import UserCreate, UserResponse, Token, VerificationRequest, VerificationVerify
+from app.schemas.auth import UserCreate, UserResponse, Token, VerificationRequest, VerificationVerify, GoogleLoginRequest
 from app.services.auth_service import AuthService, get_db, get_current_user
 import uuid
+import secrets
 import logging
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ async def register(request: Request, user_in: UserCreate, db: AsyncSession = Dep
         full_name=user_in.full_name,
         role="candidate",
         is_active=True,
-        is_verified=False,
+        is_verified=True,
         verification_token=verification_token
     )
     
@@ -59,16 +60,22 @@ async def verify_email(req: VerificationVerify, db: AsyncSession = Depends(get_d
     await db.commit()
     return {"message": "Email verified successfully"}
 
-from app.schemas.auth import GoogleLoginRequest
-import secrets
+
 
 @router.post("/google", response_model=Token)
 async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_db)):
-    # In a real application, verify the Google token with google-auth library
-    # mock verification for this demo
-    logger.info(f"Mock verifying Google token: {req.token}")
-    
-    # We'll just assume the token is the user's email for mocking purposes
+    # [CRIT-4 FIX] Block mock Google login in production to prevent account takeover.
+    # In production, this should use google-auth library to verify the ID token.
+    import os
+    if os.getenv("NODE_ENV", "development") == "production":
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google OAuth verification is not yet configured for production. "
+                   "Please use email/password login or contact support."
+        )
+
+    # DEMO ONLY: mock verification — treats token as email
+    logger.warning(f"[DEMO] Mock Google login — token treated as email: {req.token}")
     email = req.token if "@" in req.token else "mockuser@gmail.com"
     full_name = "Google User"
     

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "2.0.0"
     SECRET_KEY: str = "change-me-in-production"
     
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/job_matching"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:15432/job_matching"
     REDIS_URL: str = "redis://localhost:6379/0"
     MATCH_CACHE_TTL: int = 3600
     
@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Translation
     TRANSLATION_PROVIDER: str = "argostranslate"
 
+    # External APIs
+    GROQ_API_KEY: str = ""
+
     # Cloudinary
     CLOUDINARY_CLOUD_NAME: str = "your_cloud_name"
     CLOUDINARY_API_KEY: str = "your_api_key"
@@ -70,6 +73,7 @@ class Settings(BaseSettings):
             )
         return v
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # Check current directory first, then fallback to monorepo root
+    model_config = SettingsConfigDict(env_file=(".env", "../../.env"), env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()
