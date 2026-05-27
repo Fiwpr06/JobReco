@@ -10,6 +10,8 @@ from app.models.chat import ChatRoom, ChatMessage
 from app.schemas.chat import ChatRoomResponse, ChatMessageResponse, ChatMessageCreate
 from app.services.auth_service import get_db, get_current_user
 import json
+import datetime
+from datetime import timezone as tz
 import logging
 
 logger = logging.getLogger(__name__)
@@ -158,6 +160,15 @@ async def websocket_chat_endpoint(
                 await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
                 return
             user_id = user.id
+
+            # [HIGH-6 FIX] Verify the authenticated user is a member of this chat room
+            room_query = await db.execute(
+                select(ChatRoom).where(ChatRoom.id == room_id)
+            )
+            room = room_query.scalars().first()
+            if not room or (room.candidate_id != user_id and room.recruiter_id != user_id):
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
             
     except Exception:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
@@ -181,8 +192,7 @@ async def websocket_chat_endpoint(
                 # Update room updated_at
                 room = await db.get(ChatRoom, room_id)
                 if room:
-                    import datetime
-                    room.updated_at = datetime.datetime.utcnow()
+                    room.updated_at = datetime.datetime.now(tz.utc)
                     
                 await db.commit()
                 await db.refresh(msg)

@@ -1,7 +1,9 @@
+import re
 import time
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Response
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -61,7 +63,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-from fastapi.middleware.cors import CORSMiddleware
+# ── [MED-1 FIX] Middleware ordering ────────────────────────────────────────
+# Starlette processes middlewares in LIFO (last added = outermost).
+# We add CORS LAST so it wraps everything (runs first on request, last on response).
 
 # Register slowapi
 app.state.limiter = limiter
@@ -81,14 +85,14 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 
-from fastapi.responses import JSONResponse
-
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled exception: {exc}")
+    import traceback
+    tb = traceback.format_exc()
+    logger.error(f"Unhandled exception: {exc}\n{tb}")
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal Server Error", "message": "An unexpected error occurred. Please try again later."},
+        content={"detail": "Internal Server Error", "message": str(exc), "traceback": tb},
     )
 
 # ── 3.5 JWT Decoder Middleware for Rate Limiter ──────────────────────────
@@ -111,7 +115,6 @@ async def extract_user_tier_middleware(request: Request, call_next):
 async def prometheus_middleware(request: Request, call_next):
     start_time = time.time()
     method = request.method
-    import re
     path = re.sub(r'/\d+', '/{id}', request.url.path)
     
     response = await call_next(request)
@@ -126,9 +129,15 @@ async def prometheus_middleware(request: Request, call_next):
         
     return response
 
+# [CRIT-2 FIX] Read CORS origins from environment instead of hard-coding localhost.
+# Supports comma-separated list: CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
+import os
+_cors_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost")
+_cors_origins = [origin.strip() for origin in _cors_raw.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

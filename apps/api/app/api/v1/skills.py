@@ -83,7 +83,7 @@ async def get_career_gaps_advisory(
     # 1. Fetch CV and its skills
     stmt = select(CV).options(
         selectinload(CV.skills)
-    ).where(CV.user_id == current_user.id)
+    ).where(CV.deleted_at.is_(None), CV.user_id == current_user.id)
     
     if cv_id:
         stmt = stmt.where(CV.id == cv_id)
@@ -168,7 +168,7 @@ async def get_skill_graph(
     db: AsyncSession = Depends(get_db)
 ):
     # Fetch CV and owned skills
-    stmt = select(CV).options(selectinload(CV.skills).selectinload(CVSkill.skill)).where(CV.id == cv_id, CV.user_id == current_user.id)
+    stmt = select(CV).options(selectinload(CV.skills).selectinload(CVSkill.skill)).where(CV.deleted_at.is_(None), CV.id == cv_id, CV.user_id == current_user.id)
     result = await db.execute(stmt)
     cv = result.scalars().first()
     

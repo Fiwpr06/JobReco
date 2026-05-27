@@ -21,6 +21,7 @@ class CVSkillResponse(CVSkillBase):
 class CVBase(BaseModel):
     title_en: Optional[str] = None
     summary_en: Optional[str] = None
+    cv_type: Optional[str] = 'experienced' # 'intern' or 'experienced'
     experience_years: Optional[float] = 0.0
     current_salary_vnd: Optional[int] = None
     expected_salary_min_vnd: Optional[int] = None
@@ -48,8 +49,8 @@ class CVResponse(CVBase):
     id: int
     user_id: int
     is_primary: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     skills: List[CVSkillResponse] = []
 
     model_config = ConfigDict(from_attributes=True)

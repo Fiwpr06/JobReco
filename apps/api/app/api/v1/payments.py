@@ -4,6 +4,7 @@ from sqlalchemy.future import select
 from typing import List, Optional
 import uuid
 import datetime
+from datetime import timezone as tz
 
 from app.database import get_db
 from app.models.user import User
@@ -29,11 +30,6 @@ class PaymentTransactionResponse(BaseModel):
     
     class Config:
         from_attributes = True
-
-class WebhookPayload(BaseModel):
-    order_code: str
-    amount: int
-    status: str # expected "completed"
 
 # ---- ENDPOINTS ----
 
@@ -93,49 +89,50 @@ async def get_payment_status(
         "status": tx.status
     }
 
-from fastapi import Request
-import hmac
-import hashlib
-from app.utils.rate_limit import limiter
-
-@router.post("/webhook")
-@limiter.limit("20/minute")
-async def payment_webhook(
-    request: Request,
+@router.post("/notify-transfer/{order_code}")
+async def notify_transfer(
+    order_code: str,
+    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Webhook endpoint to be called by payment gateway.
+    Candidate calls this when they have transferred the money.
+    Changes status to 'processing' (pending manual confirmation).
     """
-    from app.config import settings
-    import json
-    
-    body = await request.body()
-    
-    # Signature verification
-    signature = request.headers.get("X-Webhook-Signature")
-    if settings.NODE_ENV == "production":
-        if not signature:
-            raise HTTPException(status_code=401, detail="Missing signature")
-            
-        expected_signature = hmac.new(
-            settings.PAYMENT_WEBHOOK_SECRET.encode('utf-8'),
-            body,
-            hashlib.sha256
-        ).hexdigest()
-        
-        if not hmac.compare_digest(signature, expected_signature):
-            raise HTTPException(status_code=401, detail="Invalid signature")
-
-    payload_data = json.loads(body)
-    payload = WebhookPayload(**payload_data)
-
-    if payload.status != "completed":
-        return {"message": "Ignored"}
-        
-    # Find transaction
     result = await db.execute(
-        select(PaymentTransaction).where(PaymentTransaction.order_code == payload.order_code)
+        select(PaymentTransaction).where(
+            PaymentTransaction.order_code == order_code,
+            PaymentTransaction.user_id == current_user.id
+        )
+    )
+    tx = result.scalars().first()
+    
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+        
+    if tx.status != "pending":
+        return {"message": f"Transaction already marked as {tx.status}"}
+        
+    tx.status = "processing"
+    await db.commit()
+    
+    return {"message": "Notification received, awaiting admin confirmation", "status": tx.status}
+
+@router.post("/admin/confirm/{order_code}")
+async def admin_confirm_payment(
+    order_code: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Admin manually confirms the payment and activates premium for the user.
+    """
+    # Verify Admin Role
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+        
+    result = await db.execute(
+        select(PaymentTransaction).where(PaymentTransaction.order_code == order_code)
     )
     tx = result.scalars().first()
     
@@ -143,29 +140,25 @@ async def payment_webhook(
         raise HTTPException(status_code=404, detail="Transaction not found")
         
     if tx.status == "completed":
-        return {"message": "Already processed"}
+        return {"message": "Transaction already completed"}
         
-    if tx.amount != payload.amount:
-        raise HTTPException(status_code=400, detail="Amount mismatch")
-        
-    # Update transaction
+    # Mark as completed
     tx.status = "completed"
     
-    # Upgrade user
+    # Upgrade User
     user_result = await db.execute(select(User).where(User.id == tx.user_id))
     user = user_result.scalars().first()
     
     if user:
         user.subscription_tier = "premium"
-        # Add 30 days to premium_until
-        current_time = datetime.datetime.utcnow()
+        current_time = datetime.datetime.now(tz.utc)
         if user.premium_until and user.premium_until > current_time:
             user.premium_until = user.premium_until + datetime.timedelta(days=30)
         else:
             user.premium_until = current_time + datetime.timedelta(days=30)
             
     await db.commit()
-    return {"message": "Success"}
+    return {"message": "Payment confirmed and user upgraded"}
 
 @router.get("/history", response_model=List[PaymentTransactionResponse])
 async def get_payment_history(

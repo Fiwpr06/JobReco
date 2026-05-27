@@ -50,7 +50,7 @@ class JobSkillResponse(BaseModel):
 class JobResponse(BaseModel):
     id: int
     job_id: str
-    apply_url: str  # All match and job detailed responses must return apply_url
+    apply_url: Optional[str] = None  # All match and job detailed responses must return apply_url
     title_vi: Optional[str] = None
     title_en: Optional[str] = None
     company_name_vi: Optional[str] = None
@@ -84,9 +84,9 @@ class JobResponse(BaseModel):
     quantity: Optional[int] = None
     job_category: Optional[str] = None
 
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
+    is_active: bool = True
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     
     company: Optional[CompanyResponse] = None
     skills: List[JobSkillResponse] = []

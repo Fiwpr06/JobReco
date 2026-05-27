@@ -34,7 +34,7 @@ async def require_recruiter(current_user: User = Depends(get_current_user), db: 
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied: Recruiter role required."
         )
-    if not current_user.company_id:
+    if not current_user.company_id and current_user.role != 'admin':
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Recruiter has no company associated."
@@ -50,9 +50,9 @@ async def get_my_postings(
     current_user: User = Depends(require_recruiter),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Job).where(Job.company_id == current_user.company_id)
+    stmt = select(Job).where(Job.company_id == current_user.company_id, Job.deleted_at.is_(None))
     if active_only is not None:
-        stmt = stmt.where(Job.deleted_at.is_(None), Job.is_active == active_only)
+        stmt = stmt.where(Job.is_active == active_only)
     
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -198,10 +198,11 @@ async def get_top_matches(
 
     # 2. Get top 50 candidates in the database matching this job profile
     # For a high-quality demonstration, we run HGAT/SentenceTransformer over all CVs
+    # [MED-2 FIX] Add soft-delete filter for CVs
     cvs_stmt = select(CV).options(
         selectinload(CV.skills).selectinload(CVSkill.skill),
         selectinload(CV.user)
-    ).where(CV.embedding.isnot(None)).limit(50)
+    ).where(CV.deleted_at.is_(None), CV.embedding.isnot(None)).limit(50)
     cvs_res = await db.execute(cvs_stmt)
     cvs = cvs_res.scalars().all()
 
@@ -319,7 +320,11 @@ async def get_skill_heatmap(
     if not apps:
         return []
 
-    cv_ids = [app.cv_id for app in apps]
+    # [HIGH-7 FIX] Filter out None cv_ids from direct-upload applications
+    cv_ids = [app.cv_id for app in apps if app.cv_id is not None]
+    
+    if not cv_ids:
+        return []
     
     skills_stmt = select(CVSkill).options(selectinload(CVSkill.skill)).where(CVSkill.cv_id.in_(cv_ids))
     skills_res = await db.execute(skills_stmt)

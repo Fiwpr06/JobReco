@@ -31,16 +31,13 @@ def upload_pdf_to_cloudinary(file_path: str, public_id: str = None) -> dict:
     
     # Upload the file
     options = {
-        "resource_type": "raw", # Use 'raw' or 'image' for pdf? 'image' allows pdf preview, 'raw' is just file.
+        "resource_type": "auto",  # [LOW-4 FIX] Use 'auto' directly (was previously set to 'raw' then overridden)
         "folder": "dacs_cv_uploads"
     }
     if public_id:
         options["public_id"] = public_id
         
     try:
-        # We upload as 'image' to allow PDF thumbnail generation if needed by Cloudinary,
-        # but 'raw' is safer for arbitrary documents. Let's use 'raw' or 'auto'.
-        options["resource_type"] = "auto"
         response = cloudinary.uploader.upload(file_path, **options)
         return {
             "url": response.get("secure_url"),

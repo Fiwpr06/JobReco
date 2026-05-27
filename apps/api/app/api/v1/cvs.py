@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import List
 import datetime
+from datetime import timezone as tz
 
 from app.database import AsyncSessionLocal
 from app.models.user import User
@@ -20,7 +21,7 @@ from app.models.skill import Skill
 from app.schemas.cv import CVCreate, CVUpdate, CVResponse
 from app.services.auth_service import get_db, get_current_user
 from app.pipelines.translator import TranslationService
-from app.pipelines.normalizer import ExperienceNormalizer, SalaryNormalizer
+from app.pipelines.normalizer import ExperienceNormalizer, SalaryNormalizer, JobTitleExtractor
 from app.pipelines.skill_extractor import HybridSkillExtractor
 from app.ml.embedding import SentenceTransformerEmbedding
 
@@ -47,9 +48,13 @@ async def analyze_cv(
     # Merge skills by ID
     extracted_skills = {s.id: s for s in (skills_vi + skills_en)}
     
-    # 3. Normalize Experience and Salary if not provided
+    # 3. Normalize Experience if not provided
     experience_years = cv_in.experience_years
-    if (experience_years is None or experience_years == 0.0) and raw_vi:
+    cv_type = getattr(cv_in, 'cv_type', 'experienced')
+    
+    if cv_type == 'intern':
+        experience_years = 0.0
+    elif (experience_years is None or experience_years == 0.0) and raw_vi:
         min_exp, max_exp = ExperienceNormalizer.normalize(raw_vi)
         experience_years = min_exp if min_exp > 0 else max_exp
         
@@ -73,8 +78,7 @@ async def analyze_cv(
     title_en = cv_in.title_en
     if not title_en:
         if raw_en:
-            first_line = raw_en.split("\n")[0].strip()
-            title_en = first_line[:100] if len(first_line) > 5 else "Resume Profile"
+            title_en = JobTitleExtractor.extract(raw_en)
         else:
             title_en = "Resume Profile"
             
@@ -128,26 +132,24 @@ async def create_cv(
     # Merge skills by ID
     extracted_skills = {s.id: s for s in (skills_vi + skills_en)}
     
-    # 3. Normalize Experience and Salary if not provided
+    # 3. Normalize Experience if not provided
     experience_years = cv_in.experience_years
-    if (experience_years is None or experience_years == 0.0) and raw_vi:
+    cv_type = getattr(cv_in, 'cv_type', 'experienced')
+    
+    if cv_type == 'intern':
+        experience_years = 0.0
+    elif (experience_years is None or experience_years == 0.0) and raw_vi:
         min_exp, max_exp = ExperienceNormalizer.normalize(raw_vi)
         experience_years = min_exp if min_exp > 0 else max_exp
         
     expected_salary_min = cv_in.expected_salary_min_vnd
     expected_salary_max = cv_in.expected_salary_max_vnd
-    
-    if (expected_salary_min is None and expected_salary_max is None) and raw_vi:
-        min_v, max_v, _, _, _, _ = SalaryNormalizer.normalize(raw_vi)
-        expected_salary_min = min_v
-        expected_salary_max = max_v
         
     # Ensure title and summary exist
     title_en = cv_in.title_en
     if not title_en:
         if raw_en:
-            first_line = raw_en.split("\n")[0].strip()
-            title_en = first_line[:100] if len(first_line) > 5 else "Resume Profile"
+            title_en = JobTitleExtractor.extract(raw_en)
         else:
             title_en = "Resume Profile"
             
@@ -158,7 +160,10 @@ async def create_cv(
     # 4. Generate Embedding for FAISS searching
     # We combine title, summary and skills names to get a rich representation
     skill_names = " ".join([s.name for s in extracted_skills.values()])
-    embedding_text = f"{title_en}. {summary_en}. Skills: {skill_names}"
+    
+    # Avoid polluting embedding with generic "Uploaded Resume Profile"
+    clean_title = title_en if title_en not in ["Uploaded Resume Profile", "Resume Profile"] else "IT Software Candidate"
+    embedding_text = f"{clean_title}. Skills: {skill_names}. {summary_en}"
     
     embedder = SentenceTransformerEmbedding()
     embedding_vec = embedder.get_embedding(embedding_text)
@@ -171,6 +176,7 @@ async def create_cv(
     # 6. Create CV record
     db_cv = CV(
         user_id=current_user.id,
+        cv_type=cv_type,
         title_en=title_en,
         summary_en=summary_en,
         experience_years=experience_years or 0.0,
@@ -325,6 +331,10 @@ async def update_cv(
             )
             db.add(db_cv_skill)
             
+    # [HIGH-5 FIX] Flush pending changes so new CVSkills are visible to the
+    # skill query below. Without this, the embedding may be generated from stale/empty skills.
+    await db.flush()
+
     # Regenerate embedding if details changed
     embedder = SentenceTransformerEmbedding()
     # Fetch skill names
@@ -333,7 +343,10 @@ async def update_cv(
     )
     skills_list = skill_query.scalars().all()
     skill_names = " ".join([s.name for s in skills_list])
-    embedding_text = f"{db_cv.title_en}. {db_cv.summary_en}. Skills: {skill_names}"
+    
+    clean_title = db_cv.title_en if db_cv.title_en not in ["Uploaded Resume Profile", "Resume Profile"] else "IT Software Candidate"
+    embedding_text = f"{clean_title}. Skills: {skill_names}. {db_cv.summary_en}"
+    
     db_cv.embedding = embedder.get_embedding(embedding_text)
     
     await db.commit()
@@ -364,7 +377,7 @@ async def delete_cv(
         )
         
     is_deleted_primary = cv.is_primary
-    cv.deleted_at = datetime.datetime.utcnow()
+    cv.deleted_at = datetime.datetime.now(tz.utc)
     cv.is_primary = False
     await db.commit()
     

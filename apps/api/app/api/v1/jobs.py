@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 import datetime
+from datetime import timezone as tz
 import os
 import uuid
 from app.utils.cloudinary import upload_pdf_to_cloudinary
@@ -18,7 +19,7 @@ from app.models.cv import CV
 from app.schemas.job import JobResponse
 from app.services.auth_service import get_db, get_current_user
 from app.ml.embedding import SentenceTransformerEmbedding
-from app.ml.faiss_index import FAISSIndexManager
+from app.ml.faiss_index import FAISSIndexManager, get_faiss_manager
 from app.config import settings
 
 router = APIRouter()
@@ -41,21 +42,12 @@ async def list_jobs(
     total_count = 0
     # Case 1: Semantic search using FAISS
     if query:
-        embedder = SentenceTransformerEmbedding()
-        query_vector = embedder.get_embedding(query)
-        
-        if not os.path.exists(FAISS_INDEX_PATH):
-            # Fallback to database search if FAISS index is missing
-            stmt = select(Job).options(
-                selectinload(Job.company),
-                selectinload(Job.skills).selectinload(JobSkill.skill)
-            ).where(Job.deleted_at.is_(None), Job.is_active == True)
-        else:
-            try:
-                faiss_manager = FAISSIndexManager(dimension=settings.EMBEDDING_DIM)
-                faiss_manager.load(FAISS_INDEX_PATH)
-
-                results = faiss_manager.search(query_vector, k=100) # get max to approximate total count
+        try:
+            embedder = SentenceTransformerEmbedding()
+            query_vector = embedder.get_embedding(query)
+            faiss_manager = get_faiss_manager(dimension=settings.EMBEDDING_DIM)
+            if faiss_manager.total_vectors > 0:
+                results = faiss_manager.search(query_vector, k=50)
                 
                 if not results:
                     response.headers["X-Total-Count"] = "0"
@@ -85,12 +77,18 @@ async def list_jobs(
                 
                 response.headers["X-Total-Count"] = str(total_count)
                 return ranked_jobs
-            except Exception as e:
-                # Fallback to DB query if FAISS load/search fails
+            else:
+                # Fallback to DB query if FAISS is empty
                 stmt = select(Job).options(
                     selectinload(Job.company),
                     selectinload(Job.skills).selectinload(JobSkill.skill)
                 ).where(Job.deleted_at.is_(None), Job.is_active == True)
+        except Exception as e:
+            # Fallback to DB query if FAISS load/search fails
+            stmt = select(Job).options(
+                selectinload(Job.company),
+                selectinload(Job.skills).selectinload(JobSkill.skill)
+            ).where(Job.deleted_at.is_(None), Job.is_active == True)
     else:
         # Case 2: Standard database query
         stmt = select(Job).options(
@@ -98,14 +96,20 @@ async def list_jobs(
             selectinload(Job.skills).selectinload(JobSkill.skill)
         ).where(Job.deleted_at.is_(None), Job.is_active == True)
         
+    # [CRIT-1 FIX] Escape SQL wildcards in user-supplied filter values
+    def _escape_like(val: str) -> str:
+        return val.replace("%", "\\%").replace("_", "\\_")
+
     # Apply database-level filters if present
     count_stmt = select(func.count(Job.id)).where(Job.deleted_at.is_(None), Job.is_active == True)
     
     if category:
-        stmt = stmt.where(Job.job_category.ilike(f"%{category}%"))
-        count_stmt = count_stmt.where(Job.job_category.ilike(f"%{category}%"))
+        safe_cat = _escape_like(category)
+        stmt = stmt.where(Job.job_category.ilike(f"%{safe_cat}%"))
+        count_stmt = count_stmt.where(Job.job_category.ilike(f"%{safe_cat}%"))
     if location:
-        loc_cond = (Job.job_address.ilike(f"%{location}%")) | (Job.job_address_detail.ilike(f"%{location}%"))
+        safe_loc = _escape_like(location)
+        loc_cond = (Job.job_address.ilike(f"%{safe_loc}%")) | (Job.job_address_detail.ilike(f"%{safe_loc}%"))
         stmt = stmt.where(loc_cond)
         count_stmt = count_stmt.where(loc_cond)
     if min_experience is not None:
@@ -160,7 +164,8 @@ async def get_my_applications(
             "apply_url": app.job.apply_url,
             "cv_title": app.cv.title_en if app.cv else None,
             "cv_url": getattr(app, "cv_url", None),
-            "source": "self-posted" if not app.job.apply_url.startswith("http") or "example.com" in app.job.apply_url else "crawled"
+            # [HIGH-2 FIX] Guard against None apply_url to prevent AttributeError
+            "source": "self-posted" if not (app.job.apply_url or "").startswith("http") or "example.com" in (app.job.apply_url or "") else "crawled"
         }
         for app in apps
     ]
@@ -210,7 +215,7 @@ async def track_apply_click_and_redirect(
         job_id=job.id,
         cv_id=cv_id,
         apply_url=job.apply_url,
-        clicked_at=datetime.datetime.utcnow()
+        clicked_at=datetime.datetime.now(tz.utc)
     )
     
     db.add(click_log)
@@ -276,7 +281,7 @@ async def post_apply_direct(
         
     # Check upload quota for free users
     if current_user.subscription_tier == "free":
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(tz.utc)
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
         count_query = await db.execute(
@@ -325,7 +330,7 @@ async def post_apply_direct(
         cv_url=cloud_result["url"],
         cv_public_id=cloud_result["public_id"],
         status="pending",
-        applied_at=datetime.datetime.utcnow()
+        applied_at=datetime.datetime.now(tz.utc)
     )
     
     db.add(app_record)

@@ -14,6 +14,7 @@ class CV(Base):
     summary_en = Column(Text)
     
     # Normalized fields
+    cv_type = Column(String(50), default='experienced') # 'intern' or 'experienced'
     experience_years = Column(DECIMAL(4, 1))
     current_salary_vnd = Column(BigInteger)
     expected_salary_min_vnd = Column(BigInteger)

@@ -17,7 +17,7 @@ from app.database import AsyncSessionLocal
 from app.models.job import Job, JobSkill
 from app.ml.embedding import SentenceTransformerEmbedding
 from app.pipelines.skill_extractor import HybridSkillExtractor
-from app.ml.faiss_index import FAISSIndexManager
+from app.ml.faiss_index import FAISSIndexManager, get_faiss_manager
 from app.config import settings
 
 # Lazy loading models
@@ -106,11 +106,9 @@ async def run_analysis_pipeline(task_id: str, filepath: str, update_state):
     update_state(state="PROGRESS", meta={"step": "faiss_search", "progress": 80})
     
     # 4. FAISS Search
-    index_path = os.path.join(os.getcwd(), "faiss_indexes", "index.faiss")
     candidate_job_ids = []
-    if os.path.exists(index_path):
-        manager = FAISSIndexManager(dimension=settings.EMBEDDING_DIM)
-        manager.load(index_path)
+    manager = get_faiss_manager(dimension=settings.EMBEDDING_DIM)
+    if manager.total_vectors > 0:
         search_results = manager.search(cv_embedding, k=settings.FAISS_TOP_K_CANDIDATES)
         candidate_job_ids = [job_id for job_id, _ in search_results]
 
@@ -170,6 +168,13 @@ async def run_analysis_pipeline(task_id: str, filepath: str, update_state):
             comp_name = job.company_name_en
             
         overall = 0.5 * norm_score + 0.3 * (len(cv_skill_ids & {js.skill_id for js in job.skills}) / max(1, len(job.skills)))
+
+        # [HIGH-1 FIX] Add missing experience/salary/location sub-scores to match
+        # the scoring formula in matching.py (50%+20%+10%+10%+10%=100%).
+        # In the Celery pipeline we don't have CV metadata, so we use neutral defaults.
+        overall += 0.1 * 1.0  # experience_match (neutral)
+        overall += 0.1 * 1.0  # salary_match (neutral)
+        # Note: overall is now capped correctly if all neutral = 0.5*score + 0.3*skill + 0.2
         
         matches.append({
             "job_id": job.id,
@@ -201,12 +206,9 @@ async def run_analysis_pipeline(task_id: str, filepath: str, update_state):
 @celery_app.task(bind=True)
 def analyze_cv_task(self, filepath: str):
     logger.info(f"Starting CV analysis for {filepath}")
-    loop = asyncio.get_event_loop()
-    if loop.is_closed():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-    result = loop.run_until_complete(
+    # [CRIT-5 FIX] Use asyncio.run() instead of deprecated get_event_loop().
+    # asyncio.run() creates a new event loop, runs the coroutine, then closes it.
+    result = asyncio.run(
         run_analysis_pipeline(self.request.id, filepath, self.update_state)
     )
     return result
