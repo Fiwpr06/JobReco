@@ -84,7 +84,8 @@ export const authOptions: NextAuthOptions = {
     signIn: '/auth/login',
   },
   session: {
-    strategy: 'jwt'
+    strategy: 'jwt',
+    maxAge: 30 * 24 * 60 * 60 // 30 days
   },
   useSecureCookies: process.env.NEXTAUTH_URL?.startsWith('https'),
   secret: process.env.NEXTAUTH_SECRET,
@@ -95,7 +96,8 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: 'lax',
         path: '/',
-        secure: process.env.NEXTAUTH_URL?.startsWith('https')
+        secure: process.env.NEXTAUTH_URL?.startsWith('https'),
+        maxAge: 30 * 24 * 60 * 60 // 30 days
       }
     }
   }
