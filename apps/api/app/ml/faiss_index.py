@@ -163,3 +163,23 @@ class FAISSIndexManager:
         if self._index is None:
             return 0
         return self._index.ntotal   # type: ignore[union-attr]
+
+import threading
+_global_faiss_manager = None
+_faiss_lock = threading.Lock()
+
+def get_faiss_manager(dimension: int = 384) -> FAISSIndexManager:
+    """
+    [HIGH-3 FIX] Get a singleton instance of FAISSIndexManager.
+    Loads the index from disk once into memory instead of on every request.
+    """
+    global _global_faiss_manager
+    if _global_faiss_manager is None:
+        with _faiss_lock:
+            if _global_faiss_manager is None:
+                manager = FAISSIndexManager(dimension=dimension)
+                index_path = os.path.join(os.getcwd(), "faiss_indexes", "index.faiss")
+                if os.path.exists(index_path):
+                    manager.load(index_path)
+                _global_faiss_manager = manager
+    return _global_faiss_manager

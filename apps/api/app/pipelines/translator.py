@@ -6,10 +6,15 @@ class TranslationService:
     Translates Vietnamese text into English using the free Google Translate API.
     Handles long text by joining sentences/blocks.
     """
+    # [MED-3 FIX] Class-level singleton client to prevent connection leaks.
+    # Previously, every instantiation created a new httpx.Client without closing it.
+    _client = None
     
     def __init__(self):
         self.url = "https://translate.googleapis.com/translate_a/single"
-        self.client = httpx.Client(timeout=15.0)
+        if TranslationService._client is None:
+            TranslationService._client = httpx.Client(timeout=15.0)
+        self.client = TranslationService._client
 
     def translate_vi_to_en(self, text: str) -> str:
         if not text or not isinstance(text, str):

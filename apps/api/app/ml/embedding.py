@@ -1,5 +1,6 @@
 from sentence_transformers import SentenceTransformer
 import numpy as np
+import threading
 from app.config import settings
 
 class SentenceTransformerEmbedding:
@@ -9,11 +10,16 @@ class SentenceTransformerEmbedding:
     Uses a class-level singleton cache to avoid multiple loads in memory.
     """
     _model_instance = None
+    # [HIGH-4 FIX] Thread-safe initialization lock
+    _init_lock = threading.Lock()
     
     def __init__(self):
         if SentenceTransformerEmbedding._model_instance is None:
-            model_name = settings.EMBEDDING_MODEL
-            SentenceTransformerEmbedding._model_instance = SentenceTransformer(model_name)
+            with SentenceTransformerEmbedding._init_lock:
+                # Double-check after acquiring lock (double-checked locking pattern)
+                if SentenceTransformerEmbedding._model_instance is None:
+                    model_name = settings.EMBEDDING_MODEL
+                    SentenceTransformerEmbedding._model_instance = SentenceTransformer(model_name)
         self.model = SentenceTransformerEmbedding._model_instance
 
     def get_embedding(self, text: str) -> list[float]:
