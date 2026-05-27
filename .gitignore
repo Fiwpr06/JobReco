@@ -67,3 +67,22 @@ infra/redis_data*/
 infra/qdrant_data*/
 
 apps/web/src/mock-data/
+
+# Large binaries and Installers
+*.msi
+*.exe
+*.zip
+*.tar.gz
+*.rar
+
+# AI Generated or Unnecessary Images
+Gemini_Generated_Image_*.png
+
+# Local Uploads and Databases
+uploads/
+media/
+*.sqlite3
+*.db
+
+# Docs
+docs/
