@@ -59,6 +59,10 @@ export interface Job {
   job_requirements_en?: string;
   benefit_vi?: string;
   benefit_en?: string;
+  job_category?: string;
+  company_size?: string;
+  job_address_detail?: string;
+  logo_url?: string;
 }
 
 export interface SkillGap {

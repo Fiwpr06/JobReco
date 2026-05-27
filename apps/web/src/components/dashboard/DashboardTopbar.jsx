@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation'
-import { Bell, ChevronDown, LogOut, User, Upload, LayoutDashboard, BriefcaseBusiness, Users, Target } from 'lucide-react'
+import { Bell, ChevronDown, LogOut, User, Upload, BriefcaseBusiness, Users, Target, Briefcase } from 'lucide-react'
 import { toast } from 'sonner'
 import { useSession, signOut } from 'next-auth/react'
 import { useQuery } from '@tanstack/react-query'
@@ -21,37 +21,49 @@ export default function DashboardTopbar() {
         router.push('/')
     }
 
+    const role = user?.role
+    const isRecruiterOrAdmin = role === 'admin' || role === 'recruiter'
+
     const { data: primaryCv } = useQuery({
         queryKey: ['primaryCv'],
         queryFn: async () => {
             const res = await api.get('/api/v1/cvs/primary')
             return res.data
         },
-        retry: 1
+        enabled: !!session, // only fetch when logged in
+        retry: false,
     })
 
-    const menus = [
+    const allMenus = [
         {
-            title: primaryCv ? 'Update CV' : 'Upload CV',
+            title: primaryCv ? 'Cập nhật CV' : 'Tải CV Lên',
             path: '/cv',
             icon: Upload,
+            always: true,
         },
         {
             title: 'Kỹ Năng',
             path: '/skills',
             icon: Target,
+            always: false, // only show when logged in & has CV
+            show: !!session && !!primaryCv,
         },
         {
             title: 'Công Việc',
-            path: '/for-you',
-            icon: BriefcaseBusiness,
+            path: '/jobs',
+            icon: Briefcase,
+            always: true, // always visible
         },
         {
             title: 'Tuyển Dụng',
-            path: '/recruiter/candidates',
+            path: '/recruiter/dashboard',
             icon: Users,
+            always: false,
+            show: isRecruiterOrAdmin, // only for recruiter/admin
         },
     ]
+
+    const menus = allMenus.filter(m => m.always || m.show)
 
     return (
         <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur-xl">
@@ -62,14 +74,9 @@ export default function DashboardTopbar() {
                 <div className="flex items-center gap-12">
 
                     {/* LOGO */}
-                    <Link href="/"
-                        className="flex items-center gap-3"
-                    >
-                        <img
-                            src="/assets/logo.png"
-                            alt="JobReco Logo"
-                            className="h-12 w-25 rounded-xl object-cover"
-                        />
+                    <Link href="/" className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 text-indigo-600 hover:bg-indigo-100 transition">
+                        <BriefcaseBusiness className="h-7 w-7" />
+                        <span className="text-lg font-black tracking-tight">JobReco</span>
                     </Link>
 
                     {/* NAVIGATION */}

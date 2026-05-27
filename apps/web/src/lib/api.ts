@@ -6,7 +6,7 @@ export const api = axios.create({
   baseURL: typeof window !== "undefined" 
     ? "" 
     : (process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'),
-  timeout: 30000, // 30s — AI matching can be slow
+  timeout: 30000, // 30s — Hệ thống matching có thể chậm
 });
 
 // Request interceptor: inject JWT
@@ -26,13 +26,15 @@ api.interceptors.response.use(
     const config = error.config;
     const status = error.response?.status;
     
-    // Retry logic for slow FastAPI backend startup (ECONNREFUSED converted to 500 by Next.js)
-    if (config && (!status || status === 500)) {
+    // [MED-7 FIX] Only retry on network errors (no HTTP response at all),
+    // not on genuine HTTP 500 errors. Use exponential backoff and fewer retries.
+    if (config && !error.response) {
       config._retryCount = config._retryCount || 0;
-      if (config._retryCount < 10) {
+      if (config._retryCount < 5) {
         config._retryCount += 1;
-        console.warn(`Backend not ready or 500 error. Retrying request in 4s... (Attempt ${config._retryCount}/10)`);
-        await new Promise(resolve => setTimeout(resolve, 4000));
+        const delay = Math.min(2000 * Math.pow(2, config._retryCount - 1), 16000);
+        console.warn(`Backend not reachable. Retrying in ${delay / 1000}s... (Attempt ${config._retryCount}/5)`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         return api(config);
       }
     }
@@ -45,12 +47,10 @@ api.interceptors.response.use(
       }
     }
     if (status === 429) {
-      // We will handle the toast notification at the component or query level 
-      // or use a global event bus. For now, logging to console.
       console.warn('Rate limit reached: 429 Too Many Requests');
     }
     if (status === 500) {
-      console.error('Backend Error 500: AI service might be down.');
+      console.error('Backend Error 500: Hệ thống có thể đang gặp sự cố.');
     }
     return Promise.reject(error);
   }

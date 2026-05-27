@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-// @ts-expect-error - pdf-parse has no default export in ts
+// @ts-ignore
 import pdfParseRaw from "pdf-parse";
 const pdfParse = typeof pdfParseRaw === "function" ? pdfParseRaw : (pdfParseRaw as any).default || pdfParseRaw;
 import mammoth from "mammoth";

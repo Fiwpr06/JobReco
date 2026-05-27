@@ -25,11 +25,10 @@ export default function Header() {
                 <Link href="/"
                     className="flex items-center gap-3"
                 >
-                    <img
-                        src="/assets/logo.png"
-                        alt="JobReco Logo"
-                        className="h-12 w-25 rounded-xl object-cover"
-                    />
+                    <div className="flex items-center gap-2 rounded-xl bg-indigo-50 px-3 py-2 text-indigo-600">
+                        <BriefcaseBusiness className="h-8 w-8" />
+                        <span className="text-xl font-black tracking-tight">JobReco</span>
+                    </div>
                 </Link>
 
                 {/* MENU */}
